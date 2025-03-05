@@ -1,0 +1,31 @@
+{
+  "variants": {
+    "variant=blank": { "model": "goe:block/warding_lantern" },
+    "variant=a": { "model": "goe:block/warding_lantern_a" },
+    "variant=b": { "model": "goe:block/warding_lantern_b" },
+    "variant=c": { "model": "goe:block/warding_lantern_c" },
+    "variant=d": { "model": "goe:block/warding_lantern_d" },
+    "variant=e": { "model": "goe:block/warding_lantern_e" },
+    "variant=f": { "model": "goe:block/warding_lantern_f" },
+    "variant=g": { "model": "goe:block/warding_lantern_g" },
+    "variant=h": { "model": "goe:block/warding_lantern_h" },
+    "variant=i": { "model": "goe:block/warding_lantern_i" },
+    "variant=j": { "model": "goe:block/warding_lantern_j" },
+    "variant=k": { "model": "goe:block/warding_lantern_k" },
+    "variant=l": { "model": "goe:block/warding_lantern_l" },
+    "variant=m": { "model": "goe:block/warding_lantern_m" },
+    "variant=n": { "model": "goe:block/warding_lantern_n" },
+    "variant=o": { "model": "goe:block/warding_lantern_o" },
+    "variant=p": { "model": "goe:block/warding_lantern_p" },
+    "variant=q": { "model": "goe:block/warding_lantern_q" },
+    "variant=r": { "model": "goe:block/warding_lantern_r" },
+    "variant=s": { "model": "goe:block/warding_lantern_s" },
+    "variant=t": { "model": "goe:block/warding_lantern_t" },
+    "variant=u": { "model": "goe:block/warding_lantern_u" },
+    "variant=v": { "model": "goe:block/warding_lantern_v" },
+    "variant=w": { "model": "goe:block/warding_lantern_w" },
+    "variant=x": { "model": "goe:block/warding_lantern_x" },
+    "variant=y": { "model": "goe:block/warding_lantern_y" },
+    "variant=z": { "model": "goe:block/warding_lantern_z" }
+  }
+}
