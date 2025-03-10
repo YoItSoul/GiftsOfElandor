@@ -1,11 +1,9 @@
 package com.soul.goe;
 
+import com.soul.goe.commands.AspectCommand;
 import com.soul.goe.datagen.ModModelProvider;
 import com.soul.goe.items.custom.Wand;
-import com.soul.goe.registry.ModBlockEntities;
-import com.soul.goe.registry.ModBlocks;
-import com.soul.goe.registry.ModCreativeTabs;
-import com.soul.goe.registry.ModItems;
+import com.soul.goe.registry.*;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -17,6 +15,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.data.event.GatherDataEvent;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +27,8 @@ import org.slf4j.LoggerFactory;
 public class Goe {
     public static final String MODID = "goe";
     public static final Logger LOGGER = LoggerFactory.getLogger("GOE/Main");
+    public static final AspectRegistry ASPECT_REGISTRY = new AspectRegistry();
+    public static final ItemAspectRegistry ITEM_ASPECT_REGISTRY = new ItemAspectRegistry(ASPECT_REGISTRY);
 
     public Goe(IEventBus modEventBus, ModContainer modContainer) {
         registerAll(modEventBus, modContainer);
@@ -41,21 +42,39 @@ public class Goe {
         ModCreativeTabs.register(modEventBus);
         ModBlockEntities.register(modEventBus);
 
+
         // Register event listeners
         modEventBus.addListener(this::onCommonSetup);
 
 
         // Register config
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+
+
+
     }
 
     private void onCommonSetup(final FMLCommonSetupEvent event) {
         LOGGER.info("Initializing common setup...");
-        event.enqueueWork(Wand::registerCatalysts);
+        event.enqueueWork(() -> {
+            Wand.registerCatalysts();
+            ASPECT_REGISTRY.registerDefaultAspects();
+            ITEM_ASPECT_REGISTRY.loadItemAspects("data/goe/aspects/item_aspects.json");
 
+        });
     }
 
-    @SubscribeEvent
+
+    @EventBusSubscriber(modid = MODID)
+    public static class ForgeEvents {
+        @SubscribeEvent
+        public static void onRegisterCommands(RegisterCommandsEvent event) {
+            AspectCommand.register(event.getDispatcher());
+        }
+    }
+
+
+        @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("Server initialization starting...");
     }
@@ -70,7 +89,7 @@ public class Goe {
     }
 
     @EventBusSubscriber(modid = Goe.MODID, bus = EventBusSubscriber.Bus.MOD)
-    public class DataGen {
+    public static class DataGen {
         @SubscribeEvent
         public static void gatherData(GatherDataEvent.Client event) {
             event.createProvider(ModModelProvider::new);

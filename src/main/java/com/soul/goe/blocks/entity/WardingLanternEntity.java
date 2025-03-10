@@ -27,6 +27,7 @@ public class WardingLanternEntity extends BlockEntity {
     private boolean isLoaded = false;
     private static final int TICK_INTERVAL = 60;
     private int tickCounter = 0;
+    private int radiusParticleCounter = 0;
 
 
     public WardingLanternEntity(BlockPos pos, BlockState state) {
@@ -67,20 +68,28 @@ public class WardingLanternEntity extends BlockEntity {
     }
 
     private void handleTick(ServerLevel level, BlockPos pos) {
-        if (++tickCounter % TICK_INTERVAL != 0) return;
+        if (++tickCounter % TICK_INTERVAL == 0) {
+            List<Entity> nearbyEntities = level.getEntities((Entity) null, searchArea,
+                    entity -> entity instanceof Monster && !isWhitelistedMob(entity));
 
-        List<Entity> nearbyEntities = level.getEntities((Entity) null, searchArea,
-                entity -> entity instanceof Monster && !isWhitelistedMob(entity));
+            for (Entity entity : nearbyEntities) {
+                if (entity instanceof LivingEntity livingEntity) {
+                    pushBackAndIgniteEntity(livingEntity, pos);
+                }
+            }
 
-        for (Entity entity : nearbyEntities) {
-            if (entity instanceof LivingEntity livingEntity) {
-                pushBackAndIgniteEntity(livingEntity, pos);
+            Optional<ServerPlayer> playerWithCharm = getPlayerHoldingCharm(level);
+            if (playerWithCharm.isPresent()) {
+                sendParticles(level, pos, playerWithCharm.get(), nearbyEntities);
             }
         }
 
-        Optional<ServerPlayer> playerWithCharm = getPlayerHoldingCharm(level);
-        if (playerWithCharm.isPresent()) {
-            sendParticles(level, pos, playerWithCharm.get(), nearbyEntities);
+        if (++radiusParticleCounter >= 10) {
+            radiusParticleCounter = 0;
+            Optional<ServerPlayer> playerWithCharm = getPlayerHoldingCharm(level);
+            if (playerWithCharm.isPresent()) {
+                sendRadiusParticles(level, Vec3.atCenterOf(pos));
+            }
         }
     }
 
@@ -116,47 +125,73 @@ public class WardingLanternEntity extends BlockEntity {
 
         Vec3 lanternCenter = Vec3.atCenterOf(pos);
 
+        // Show entity-related particles only
         for (Entity entity : entities) {
             if (entity instanceof LivingEntity livingEntity && !isWhitelistedMob(entity)) {
-                Vec3 entityPos = entity.position();
-                Vec3 direction = entityPos.subtract(lanternCenter).normalize();
-                double distance = lanternCenter.distanceTo(entityPos);
-
-                int particlesPerLine = Math.max(5, (int)(distance * 2));
-                for (int i = 0; i < particlesPerLine; i++) {
-                    double progress = i / (double) particlesPerLine;
-                    double x = lanternCenter.x + (entityPos.x - lanternCenter.x) * progress;
-                    double y = lanternCenter.y + (entityPos.y - lanternCenter.y) * progress;
-                    double z = lanternCenter.z + (entityPos.z - lanternCenter.z) * progress;
-
-                    double spread = 0.1;
-                    x += level.getRandom().nextDouble() * spread - spread/2;
-                    y += level.getRandom().nextDouble() * spread - spread/2;
-                    z += level.getRandom().nextDouble() * spread - spread/2;
-
-                    level.sendParticles(ParticleTypes.ENCHANT, x, y, z, 1,
-                            direction.x * 0.1, direction.y * 0.1, direction.z * 0.1,
-                            Config.PARTICLE_SPEED.get());
-                }
-
-                int particlesInCircle = 16;
-                double circleRadius = 1.0;
-                double angleStep = 2 * Math.PI / particlesInCircle;
-                double baseHeight = entityPos.y + 0.1;
-
-                for (int height = 0; height < 2; height++) {
-                    double circleHeight = baseHeight + (height * 1.8);
-                    for (int i = 0; i < particlesInCircle; i++) {
-                        double angle = i * angleStep;
-                        double circleX = entityPos.x + Math.cos(angle) * circleRadius;
-                        double circleZ = entityPos.z + Math.sin(angle) * circleRadius;
-                        double verticalSpeed = height == 0 ? 0.05 : -0.05;
-
-                        level.sendParticles(ParticleTypes.ENCHANT, circleX, circleHeight, circleZ, 1,
-                                0, verticalSpeed, 0, Config.PARTICLE_SPEED.get());
-                    }
-                }
+                sendEntityParticles(level, lanternCenter, entity);
             }
+        }
+    }
+
+
+    private void sendEntityParticles(ServerLevel level, Vec3 lanternCenter, Entity entity) {
+        Vec3 entityPos = entity.position();
+        Vec3 direction = entityPos.subtract(lanternCenter).normalize();
+        double distance = lanternCenter.distanceTo(entityPos);
+
+        // Line particles
+        int particlesPerLine = Math.max(5, (int)(distance * 2));
+        for (int i = 0; i < particlesPerLine; i++) {
+            double progress = i / (double) particlesPerLine;
+            double x = lanternCenter.x + (entityPos.x - lanternCenter.x) * progress;
+            double y = lanternCenter.y + (entityPos.y - lanternCenter.y) * progress;
+            double z = lanternCenter.z + (entityPos.z - lanternCenter.z) * progress;
+
+            double spread = 0.1;
+            x += level.getRandom().nextDouble() * spread - spread/2;
+            y += level.getRandom().nextDouble() * spread - spread/2;
+            z += level.getRandom().nextDouble() * spread - spread/2;
+
+            level.sendParticles(ParticleTypes.ENCHANT, x, y, z, 1,
+                    direction.x * 0.1, direction.y * 0.1, direction.z * 0.1,
+                    Config.PARTICLE_SPEED.get());
+        }
+
+        int particlesInCircle = 16;
+        double circleRadius = 1.0;
+        double angleStep = 2 * Math.PI / particlesInCircle;
+        double baseHeight = entityPos.y + 0.1;
+
+        for (int height = 0; height < 2; height++) {
+            double circleHeight = baseHeight + (height * 1.8);
+            for (int i = 0; i < particlesInCircle; i++) {
+                double angle = i * angleStep;
+                double circleX = entityPos.x + Math.cos(angle) * circleRadius;
+                double circleZ = entityPos.z + Math.sin(angle) * circleRadius;
+                double verticalSpeed = height == 0 ? 0.05 : -0.05;
+
+                level.sendParticles(ParticleTypes.ENCHANT, circleX, circleHeight, circleZ, 1,
+                        0, verticalSpeed, 0, Config.PARTICLE_SPEED.get());
+            }
+        }
+    }
+
+    private void sendRadiusParticles(ServerLevel level, Vec3 lanternCenter) {
+        int radiusParticles = 32;
+        double wardingRadius = Config.WARDING_BLOCK_RADIUS.get();
+        double angleStep = 2 * Math.PI / radiusParticles;
+
+        for (int i = 0; i < radiusParticles; i++) {
+            double angle = i * angleStep;
+            double circleX = lanternCenter.x + Math.cos(angle) * wardingRadius;
+            double circleZ = lanternCenter.z + Math.sin(angle) * wardingRadius;
+
+            level.sendParticles(ParticleTypes.ENCHANT,
+                    circleX,
+                    lanternCenter.y + 0.1,
+                    circleZ,
+                    1, 0, 0.01, 0,
+                    Config.PARTICLE_SPEED.get());
         }
     }
 

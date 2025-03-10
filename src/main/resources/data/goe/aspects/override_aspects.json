@@ -1,0 +1,48 @@
+{
+  "elements": {
+    "remove": [
+      "ExampleAspect1",
+      "ExampleAspect2"
+    ],
+    "primal": [
+      {
+        "name": "Fire",
+        "translation": "Blazing Fire"
+      },
+      {
+        "name": "Water",
+        "translation": "Flowing Water"
+      },
+      {
+        "name": "Earth",
+        "translation": "Solid Earth"
+      },
+      {
+        "name": "Air",
+        "translation": "Wind"
+      }
+    ],
+    "compound": [
+      {
+        "name": "Steam",
+        "components": ["Fire", "Water"],
+        "translation": "Rising Steam"
+      },
+      {
+        "name": "Dust",
+        "components": ["Earth", "Air"],
+        "translation": "Flying Dust"
+      },
+      {
+        "name": "Lava",
+        "components": ["Earth", "Fire"],
+        "translation": "Molten Rock"
+      },
+      {
+        "name": "Storm",
+        "components": ["Air", "Water"],
+        "translation": "Raging Storm"
+      }
+    ]
+  }
+}
