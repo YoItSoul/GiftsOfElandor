@@ -11,8 +11,7 @@ import net.minecraft.world.item.ItemStack;
 
 public class AspectCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("aspects")
-                .requires(source -> source.hasPermission(2)) // Requires op level 2
+        dispatcher.register(Commands.literal("aspects").requires(source -> source.hasPermission(2)) // Requires op level 2
                 .executes(context -> {
                     if (context.getSource().getEntity() instanceof Player player) {
                         ItemStack heldItem = player.getMainHandItem();
@@ -25,20 +24,13 @@ public class AspectCommand {
                         AspectList aspects = Goe.ITEM_ASPECT_REGISTRY.getAspects(heldItem.getItem());
 
                         if (aspects.isEmpty()) {
-                            context.getSource().sendSuccess(() ->
-                                    Component.literal("No aspects found for item: " +
-                                            heldItem.getDisplayName().getString()), false);
+                            context.getSource().sendSuccess(() -> Component.literal("No aspects found for item: " + heldItem.getDisplayName().getString()), false);
                             return 0;
                         }
 
-                        // Send the aspect information to the player
-                        context.getSource().sendSuccess(() ->
-                                Component.literal("Aspects for " +
-                                        heldItem.getDisplayName().getString() + ":"), false);
+                        context.getSource().sendSuccess(() -> Component.literal("Aspects for " + heldItem.getDisplayName().getString() + ":"), false);
 
-                        aspects.getAspects().forEach((aspect, amount) ->
-                                context.getSource().sendSuccess(() ->
-                                        aspect.getName().append(": " + amount), false));
+                        aspects.getAspects().forEach((aspect, amount) -> context.getSource().sendSuccess(() -> aspect.getName().append(": " + amount), false));
 
                         return 1;
                     }

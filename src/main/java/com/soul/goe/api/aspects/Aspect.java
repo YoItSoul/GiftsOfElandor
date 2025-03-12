@@ -3,6 +3,9 @@ package com.soul.goe.api.aspects;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 
+import java.util.Set;
+import java.util.stream.Collectors;
+
 public class Aspect {
     private final String tag;
     private final int color;
@@ -73,6 +76,25 @@ public class Aspect {
     public MutableComponent getName() {
         return Component.translatable(name);
     }
+
+
+    /**
+     * Checks if this aspect has the same component combination as the provided set.
+     * @param otherComponents the component set to compare against
+     * @return true if the components match exactly, false otherwise
+     */
+    public boolean hasSameComponents(Set<String> otherComponents) {
+        if (isPrimal() || components == null) {
+            return false;
+        }
+
+        Set<String> thisComponents = components.getAspects().keySet().stream()
+                .map(Aspect::getTag)
+                .collect(Collectors.toSet());
+
+        return thisComponents.equals(otherComponents);
+    }
+
 
     /**
      * Get a formatted chat string for this aspect

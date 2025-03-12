@@ -23,19 +23,17 @@ public class ModModelProvider extends ModelProvider {
     @Override
     protected void registerModels(BlockModelGenerators blockModels, ItemModelGenerators itemModels) {
 
-        // Register item models
         itemModels.generateFlatItem(ModItems.SALIS_MUNDUS.get(), ModelTemplates.FLAT_ITEM);
         itemModels.generateFlatItem(ModItems.AMETHYST_WAND.get(), ModelTemplates.FLAT_ITEM);
         itemModels.generateFlatItem(ModItems.EMPOWERED_AMETHYST_WAND.get(), ModelTemplates.FLAT_ITEM);
         itemModels.generateFlatItem(ModItems.ELANDORS_WAND.get(), ModelTemplates.FLAT_ITEM);
         itemModels.generateFlatItem(ModItems.ELANDORS_CHARM.get(), ModelTemplates.FLAT_ITEM);
-    }
+        itemModels.generateFlatItem(ModItems.ELANDORS_SPY_GLASS.get(), ModelTemplates.FLAT_HANDHELD_ITEM);    }
 
     @Override
     protected @NotNull Stream<? extends Holder<Block>> getKnownBlocks() {
         return super.getKnownBlocks().filter(holder -> {
             Block block = holder.value();
-            // Return false for blocks you want to skip
             return block != ModBlocks.FLARE.get() &&
                     block != ModBlocks.EMPOWERED_LANTERN.get() &&
                     block != ModBlocks.WARDING_LANTERN.get();

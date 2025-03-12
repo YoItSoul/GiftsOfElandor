@@ -33,6 +33,7 @@ public final class ModCreativeTabs {
                     // Magical Items
                     output.accept(ModItems.SALIS_MUNDUS.get());
                     output.accept(ModItems.ELANDORS_CHARM.get());
+                    output.accept(ModItems.ELANDORS_SPY_GLASS.get());
 
                     // Magical Blocks
                     output.accept(ModBlocks.FLARE.get());

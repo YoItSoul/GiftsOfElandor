@@ -11,25 +11,5 @@
   "block.goe.empowered_lantern": "Empowered Lantern",
   "block.goe.warding_lantern": "Warding Lantern",
 
-  "goe.aspect.aer": "Aer",
-  "goe.aspect.terra": "Terra",
-  "goe.aspect.ignis": "Ignis",
-  "goe.aspect.aqua": "Aqua",
-  "goe.aspect.ordo": "Ordo",
-  "goe.aspect.perditio": "Perditio",
-
-  "goe.aspect.vita": "Vita",
-  "goe.aspect.mors": "Mors",
-  "goe.aspect.metallum": "Metallum",
-  "goe.aspect.crystallum": "Crystallum",
-  "goe.aspect.lux": "Lux",
-  "goe.aspect.tenebrae": "Tenebrae",
-  "goe.aspect.praecantatio": "Praecantatio",
-  "goe.aspect.vulgaris": "Vulgaris",
-  "goe.aspect.instrumentum": "Instrumentum",
-  "goe.aspect.tutamen": "Tutamen",
-  "goe.aspect.corruptio": "Corruptio",
-  "goe.aspect.purificatio": "Purificatio",
-  "goe.aspect.naturalis": "Naturalis",
-  "goe.aspect.artificium": "Artificium"
+  "goe.tooltip.aspects": "Aspects"
 }

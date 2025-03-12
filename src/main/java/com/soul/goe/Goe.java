@@ -1,5 +1,6 @@
 package com.soul.goe;
 
+import com.soul.goe.client.ItemTooltipHandler;
 import com.soul.goe.commands.AspectCommand;
 import com.soul.goe.datagen.ModModelProvider;
 import com.soul.goe.items.custom.Wand;
@@ -51,16 +52,14 @@ public class Goe {
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
 
 
-
     }
 
     private void onCommonSetup(final FMLCommonSetupEvent event) {
         LOGGER.info("Initializing common setup...");
         event.enqueueWork(() -> {
             Wand.registerCatalysts();
-            ASPECT_REGISTRY.registerDefaultAspects();
-            ITEM_ASPECT_REGISTRY.loadItemAspects("data/goe/aspects/item_aspects.json");
-
+            ASPECT_REGISTRY.registerAspects();
+            ITEM_ASPECT_REGISTRY.loadItemAspects();
         });
     }
 
@@ -74,7 +73,7 @@ public class Goe {
     }
 
 
-        @SubscribeEvent
+    @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("Server initialization starting...");
     }
@@ -83,10 +82,12 @@ public class Goe {
     public static class ClientEvents {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
-            LOGGER.info("Initializing client setup... Player: {}",
-                    Minecraft.getInstance().getUser().getName());
+            LOGGER.info("Initializing client setup... Player: {}", Minecraft.getInstance().getUser().getName());
+
+            ItemTooltipHandler.init(ITEM_ASPECT_REGISTRY);
         }
     }
+
 
     @EventBusSubscriber(modid = Goe.MODID, bus = EventBusSubscriber.Bus.MOD)
     public static class DataGen {

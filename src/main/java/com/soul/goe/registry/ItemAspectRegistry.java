@@ -1,9 +1,6 @@
 package com.soul.goe.registry;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.soul.goe.Config;
 import com.soul.goe.Goe;
 import com.soul.goe.api.aspects.Aspect;
 import com.soul.goe.api.aspects.AspectList;
@@ -13,15 +10,10 @@ import net.minecraft.world.item.Item;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class ItemAspectRegistry {
     private static final Logger LOGGER = LoggerFactory.getLogger(Goe.MODID + "/ItemAspects");
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-
     private final Map<ResourceLocation, AspectList> itemAspects = new HashMap<>();
     private final AspectRegistry aspectRegistry;
 
@@ -29,76 +21,95 @@ public class ItemAspectRegistry {
         this.aspectRegistry = aspectRegistry;
     }
 
-    public void loadItemAspects(String path) {
-        LOGGER.info("Loading item aspects from: {}", path);
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream(path)) {
-            if (is == null) {
-                LOGGER.error("Could not find item aspect file: {}", path);
-                throw new RuntimeException("Could not find item aspect file: " + path);
+    public void loadItemAspects() {
+        LOGGER.info("Loading item aspects from config");
+        itemAspects.clear();
+
+        List<? extends String> configAspects = Config.ITEM_ASPECTS.get();
+        Set<ResourceLocation> processedItems = new HashSet<>();
+        List<String> uniqueEntries = new ArrayList<>();
+
+        for (String entry : configAspects) {
+            try {
+                String[] parts = entry.split("->");
+                ResourceLocation itemId = ResourceLocation.tryParse(parts[0].trim());
+
+                if (itemId == null) {
+                    LOGGER.error("Invalid item ID: {}", parts[0].trim());
+                    continue;
+                }
+
+                if (processedItems.add(itemId)) {
+                    processItemAspectEntry(entry);
+                    uniqueEntries.add(entry);
+                } else {
+                    LOGGER.info("Removing duplicate aspect entry for item: {}", itemId);
+                }
+            } catch (Exception e) {
+                LOGGER.error("Failed to process item aspect entry: {}", entry, e);
             }
+        }
 
-            JsonObject json = JsonParser.parseReader(new InputStreamReader(is)).getAsJsonObject();
-            validateJsonStructure(json);
-            processItemEntries(json);
+        Config.ITEM_ASPECTS.set(uniqueEntries);
+        LOGGER.info("Successfully loaded aspects for {} items", itemAspects.size());
 
-            LOGGER.info("Successfully loaded aspects for {} items", itemAspects.size());
-        } catch (Exception e) {
-            LOGGER.error("Failed to load item aspects", e);
-            throw new RuntimeException("Failed to load item aspects", e);
+        printItemsWithoutAspects();
+    }
+
+    private void printItemsWithoutAspects() {
+        List<ResourceLocation> itemsWithoutAspects = new ArrayList<>();
+
+        for (ResourceLocation itemId : BuiltInRegistries.ITEM.keySet()) {
+            if (!itemAspects.containsKey(itemId)) {
+                itemsWithoutAspects.add(itemId);
+            }
+        }
+
+        if (!itemsWithoutAspects.isEmpty()) {
+            LOGGER.info("=== Items Without Aspects ({} items) ===", itemsWithoutAspects.size());
+
+            itemsWithoutAspects.sort(Comparator.comparing(ResourceLocation::toString));
+
+            // Join all items with commas
+            String itemList = String.join(", ", itemsWithoutAspects.stream().map(ResourceLocation::toString).toList());
+
+            LOGGER.info(itemList);
+            LOGGER.info("=== End of List ===");
         }
     }
 
-    private void validateJsonStructure(JsonObject json) {
-        if (!json.has("items")) {
-            LOGGER.error("Invalid item aspect file format: missing 'items' array");
-            throw new RuntimeException("Invalid item aspect file format: missing 'items' array");
-        }
-    }
-
-    private void processItemEntries(JsonObject json) {
-        json.getAsJsonArray("items").forEach(element -> {
-            JsonObject itemObj = element.getAsJsonObject();
-            String itemId = itemObj.get("id").getAsString();
-            processItemEntry(itemId, itemObj);
-        });
-    }
-
-    private void processItemEntry(String itemId, JsonObject itemObj) {
-        ResourceLocation itemKey = ResourceLocation.tryParse(itemId);
-        if (itemKey == null) {
-            LOGGER.error("Invalid item ID format: {}", itemId);
-            throw new RuntimeException("Invalid item ID format: " + itemId);
+    private void processItemAspectEntry(String entry) {
+        String[] parts = entry.split("->");
+        ResourceLocation itemId = ResourceLocation.tryParse(parts[0].trim());
+        if (itemId == null) {
+            LOGGER.error("Invalid item ID: {}", parts[0].trim());
+            return;
         }
 
         AspectList aspects = new AspectList();
-        JsonObject aspectsObj = itemObj.getAsJsonObject("aspects");
+        String[] aspectEntries = parts[1].split(",");
 
-        processAspects(itemId, aspects, aspectsObj);
+        for (String aspectEntry : aspectEntries) {
+            String[] aspectParts = aspectEntry.trim().split(":");
+            String aspectName = aspectParts[0];
+            int amount = Integer.parseInt(aspectParts[1]);
 
-        itemAspects.put(itemKey, aspects);
-        LOGGER.debug("Registered aspects for item {}: {}", itemId, aspectListToString(aspects));
-    }
-
-    private void processAspects(String itemId, AspectList aspects, JsonObject aspectsObj) {
-        aspectsObj.entrySet().forEach(entry -> {
-            String aspectName = entry.getKey();
-            int amount = entry.getValue().getAsInt();
             Aspect aspect = aspectRegistry.getAspect(aspectName);
-
             if (aspect != null) {
                 aspects.add(aspect, amount);
             } else {
                 LOGGER.warn("Unknown aspect '{}' for item {}", aspectName, itemId);
             }
-        });
+        }
+
+        itemAspects.put(itemId, aspects);
+        LOGGER.debug("Registered aspects for item {}: {}", itemId, aspectListToString(aspects));
     }
 
     private String aspectListToString(AspectList aspects) {
         StringBuilder sb = new StringBuilder();
-        aspects.getAspects().forEach((aspect, amount) ->
-                sb.append(aspect.getName()).append("=").append(amount).append(", ")
-        );
-        return sb.length() > 0 ? sb.substring(0, sb.length() - 2) : "none";
+        aspects.getAspects().forEach((aspect, amount) -> sb.append(aspect.getName()).append("=").append(amount).append(", "));
+        return !sb.isEmpty() ? sb.substring(0, sb.length() - 2) : "none";
     }
 
     // Getter methods
