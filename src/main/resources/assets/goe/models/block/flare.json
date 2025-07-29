@@ -1,6 +1,6 @@
 {
 	"credit": "Made with Blockbench",
-	"parent": "flare",
+	"parent": "minecraft:block/block",
 	"textures": {
 		"0": "goe:block/flare",
 		"particle": "goe:block/flare"

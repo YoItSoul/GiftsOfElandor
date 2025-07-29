@@ -3,6 +3,7 @@ package com.soul.goe.registry;
 import com.soul.goe.Goe;
 import com.soul.goe.blocks.entity.EmpoweredLanternEntity;
 import com.soul.goe.blocks.entity.WardingLanternEntity;
+import com.soul.goe.blocks.entity.PedestalEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
@@ -30,8 +31,13 @@ public class ModBlockEntities {
                     )
             );
 
-
-
+    public static final Supplier<BlockEntityType<PedestalEntity>> PEDESTAL =
+            BLOCK_ENTITIES.register("pedestal",
+                    () -> new BlockEntityType<>(
+                            PedestalEntity::new,
+                            ModBlocks.PEDESTAL.get()
+                    )
+            );
 
     public static void register(IEventBus eventBus) {
         BLOCK_ENTITIES.register(eventBus);

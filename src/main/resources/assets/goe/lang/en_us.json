@@ -10,6 +10,24 @@
   "block.goe.flare": "Flare",
   "block.goe.empowered_lantern": "Empowered Lantern",
   "block.goe.warding_lantern": "Warding Lantern",
+  "block.goe.pedestal": "Pedestal",
 
-  "goe.tooltip.aspects": "Aspects"
+
+  "jei.goe.category.pedestal_crafting": "Pedestal Crafting",
+  "jei.goe.category.wand_catalyst": "Wand Catalyst",
+
+  "jei.goe.category.pedestal_crafting.description": "Place items on Pedestals to craft magical items. The center item goes on the Pedestal, and the surrounding ingredients are placed on nearby Pedestals within range.",
+  "jei.goe.category.wand_catalyst.description": "Use any wand to transform blocks into valuable materials. Right-click a block with a wand to perform the transformation.",
+
+  "jei.goe.info.pedestal_crafting.title": "How to Use Pedestal Crafting",
+  "jei.goe.info.pedestal_crafting.text": "1. Place the center item on a Pedestal\n2. Place surrounding ingredients on nearby Pedestals\n3. Right-click the center Pedestal to craft\n4. All items within the search radius will be consumed",
+
+  "jei.goe.info.wand_catalyst.title": "How to Use Wand Catalyst",
+  "jei.goe.info.wand_catalyst.text": "1. Hold any wand in your hand\n2. Right-click on the target block\n3. The block will be consumed and items will drop\n4. The wand will take durability damage",
+
+  "jei.goe.tooltip.requires_pedestal": "Requires: Pedestal",
+  "jei.goe.tooltip.requires_wand": "Requires: Any Wand",
+  "jei.goe.tooltip.search_radius": "Search Radius: %d blocks",
+  "jei.goe.tooltip.ingredient_count": "%d ingredients required"
+
 }

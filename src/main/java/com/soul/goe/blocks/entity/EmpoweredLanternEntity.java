@@ -3,215 +3,245 @@ package com.soul.goe.blocks.entity;
 import com.soul.goe.registry.ModBlockEntities;
 import com.soul.goe.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.Level;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.phys.AABB;
 
 import java.util.*;
 
 public class EmpoweredLanternEntity extends BlockEntity {
-    private static final int DEFAULT_CHUNK_RADIUS = 3;
-    private static final int TICKS_BETWEEN_CHECKS = 5;
-    private static final int MIN_SPAWN_HEIGHT = -62;
-    private static final int MAX_SPAWN_HEIGHT = 300;
-    private static final int HEIGHT_CHECK_INTERVAL = 2;
-    private static final int BASE_SAMPLES_PER_CHUNK = 32;
-    private static final float GOLDEN_RATIO = 1.618033988749895f;
+    private static final int SCAN_RADIUS = 48;
+    private static final int TICKS_BETWEEN_SCANS = 100;
+    private static final int FLARE_SPACING = 8;
+    private static final int MIN_LIGHT_LEVEL = 7;
+    private static final int MAX_FLARES_PER_SCAN = 5;
+    private static final int FLARE_SPACING_SQUARED = FLARE_SPACING * FLARE_SPACING;
 
-    private final Queue<ChunkPos> priorityChunks = new LinkedList<>();
-    private final Map<ChunkPos, Long> lastCheckedChunks = new HashMap<>();
+    private final Set<BlockPos> placedFlares = new HashSet<>();
+    private final Random random = new Random();
 
-    private int chunkRadius;
     private int tickCounter;
-    private int currentSpiralX;
-    private int currentSpiralZ;
-    private int spiralDx;
-    private int spiralDz;
-    private int spiralSteps;
+    private long lastFullScan;
+    private boolean scanInProgress;
+    private Iterator<BlockPos> scanIterator;
+    private int consecutiveEmptyScans;
+    private long sleepUntil;
+    private int totalFlaresPlacedThisScan;
 
     public EmpoweredLanternEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.EMPOWERED_LANTERN.get(), pos, state);
-        this.chunkRadius = DEFAULT_CHUNK_RADIUS;
-        resetSpiralPattern();
-    }
-
-    private void resetSpiralPattern() {
-        currentSpiralX = 0;
-        currentSpiralZ = 0;
-        spiralDx = 0;
-        spiralDz = -1;
-        spiralSteps = 0;
     }
 
     public static void tick(Level level, BlockPos pos, BlockState state, EmpoweredLanternEntity entity) {
-        if (level.isClientSide) return;
+        if (level.isClientSide || !(level instanceof ServerLevel serverLevel)) return;
 
-        if (++entity.tickCounter >= TICKS_BETWEEN_CHECKS) {
-            entity.tickCounter = 0;
-            entity.checkAndPlaceFlares(level, pos);
+        entity.tickCounter++;
+
+        if (entity.scanInProgress) {
+            entity.continueScan(serverLevel);
+        } else if (entity.shouldStartNewScan()) {
+            entity.startNewScan();
+        }
+
+        if (entity.tickCounter % 2400 == 0) {
+            entity.cleanupInvalidFlares(serverLevel);
         }
     }
 
-    private void checkAndPlaceFlares(Level level, BlockPos lanternPos) {
-        int baseChunkX = lanternPos.getX() >> 4;
-        int baseChunkZ = lanternPos.getZ() >> 4;
+    private boolean shouldStartNewScan() {
+        long currentTime = System.currentTimeMillis();
 
-        // First process any priority chunks
-        while (!priorityChunks.isEmpty() && spiralSteps < 3) { // Limit priority checks per tick
-            ChunkPos priorityChunk = priorityChunks.poll();
-            scanChunkForDarkSpots(level, priorityChunk.x, priorityChunk.z, true);
-            spiralSteps++;
+        if (currentTime < sleepUntil) {
+            return false;
         }
 
-        // Then continue with spiral pattern
-        int maxSteps = (int)(Math.PI * chunkRadius * chunkRadius);
-        while (spiralSteps < maxSteps) {
-            if (isInRadius(currentSpiralX, currentSpiralZ)) {
-                int targetChunkX = baseChunkX + currentSpiralX;
-                int targetChunkZ = baseChunkZ + currentSpiralZ;
+        return tickCounter >= TICKS_BETWEEN_SCANS && !scanInProgress &&
+                (currentTime - lastFullScan > 3000);
+    }
 
-                if (shouldScanChunk(new ChunkPos(targetChunkX, targetChunkZ))) {
-                    scanChunkForDarkSpots(level, targetChunkX, targetChunkZ, false);
-                    break; // Process one chunk per tick for better performance
+    private void startNewScan() {
+        scanInProgress = true;
+        tickCounter = 0;
+        lastFullScan = System.currentTimeMillis();
+        totalFlaresPlacedThisScan = 0;
+
+        List<BlockPos> scanPositions = generateScanPositions();
+        scanIterator = scanPositions.iterator();
+
+        System.out.println("Starting smart flare scan with " + scanPositions.size() + " positions");
+    }
+
+    private List<BlockPos> generateScanPositions() {
+        List<BlockPos> positions = new ArrayList<>();
+
+        List<Monster> nearbyMobs = getNearbyMobs();
+
+        if (!nearbyMobs.isEmpty()) {
+            for (Monster mob : nearbyMobs.subList(0, Math.min(5, nearbyMobs.size()))) {
+                BlockPos mobPos = mob.blockPosition();
+                addScanArea(positions, mobPos, 8);
+            }
+        }
+
+        int baseScans = nearbyMobs.isEmpty() ? 16 : 8;
+        for (int i = 0; i < baseScans; i++) {
+            double angle = (2 * Math.PI * i) / baseScans;
+            int distance = 16 + random.nextInt(SCAN_RADIUS - 16);
+
+            int x = worldPosition.getX() + (int)(Math.cos(angle) * distance);
+            int z = worldPosition.getZ() + (int)(Math.sin(angle) * distance);
+
+            addScanArea(positions, new BlockPos(x, worldPosition.getY(), z), 4);
+        }
+
+        Collections.shuffle(positions, random);
+        return positions;
+    }
+
+    private List<Monster> getNearbyMobs() {
+        if (!(level instanceof ServerLevel serverLevel)) return new ArrayList<>();
+
+        AABB searchArea = new AABB(worldPosition).inflate(SCAN_RADIUS);
+        return serverLevel.getEntitiesOfClass(Monster.class, searchArea);
+    }
+
+    private void addScanArea(List<BlockPos> positions, BlockPos center, int radius) {
+        for (int x = -radius; x <= radius; x += 4) {
+            for (int z = -radius; z <= radius; z += 4) {
+                if (x*x + z*z <= radius*radius) {
+                    positions.add(center.offset(x, 0, z));
                 }
             }
-
-            advanceSpiralPattern();
-        }
-
-        // Reset spiral pattern when complete
-        if (spiralSteps >= maxSteps) {
-            resetSpiralPattern();
         }
     }
 
-    private void advanceSpiralPattern() {
-        if (currentSpiralX == currentSpiralZ ||
-                (currentSpiralX < 0 && currentSpiralX == -currentSpiralZ) ||
-                (currentSpiralX > 0 && currentSpiralX == 1-currentSpiralZ)) {
-            int temp = spiralDx;
-            spiralDx = -spiralDz;
-            spiralDz = temp;
+    private void continueScan(ServerLevel level) {
+        int processed = 0;
+        int flaresPlaced = 0;
+
+        while (scanIterator.hasNext() && processed < 5 && flaresPlaced < MAX_FLARES_PER_SCAN) {
+            BlockPos scanPos = scanIterator.next();
+            processed++;
+
+            if (checkAndPlaceFlareAtPosition(level, scanPos)) {
+                flaresPlaced++;
+                totalFlaresPlacedThisScan++;
+            }
         }
-        currentSpiralX += spiralDx;
-        currentSpiralZ += spiralDz;
-        spiralSteps++;
+
+        if (!scanIterator.hasNext()) {
+            scanInProgress = false;
+
+            if (totalFlaresPlacedThisScan == 0) {
+                consecutiveEmptyScans++;
+                System.out.println("Empty scan #" + consecutiveEmptyScans + ". No valid flare positions found.");
+
+                if (consecutiveEmptyScans >= 5) {
+                    sleepUntil = System.currentTimeMillis() + 30000;
+                    consecutiveEmptyScans = 0;
+                    System.out.println("Entering sleep mode for 30 seconds - no valid positions found in 5 consecutive scans.");
+                }
+            } else {
+                consecutiveEmptyScans = 0;
+                System.out.println("Flare scan complete. Placed " + totalFlaresPlacedThisScan + " flares total.");
+            }
+        }
     }
 
-    private boolean isInRadius(int x, int z) {
-        return Math.abs(x) <= chunkRadius && Math.abs(z) <= chunkRadius;
-    }
+    private boolean checkAndPlaceFlareAtPosition(ServerLevel level, BlockPos scanPos) {
+        if (!level.isLoaded(scanPos)) return false;
 
-    private boolean shouldScanChunk(ChunkPos chunk) {
-        long currentTime = System.currentTimeMillis();
-        Long lastCheck = lastCheckedChunks.get(chunk);
-        if (lastCheck == null || currentTime - lastCheck > 60000) { // 1 minute cooldown
-            lastCheckedChunks.put(chunk, currentTime);
+        BlockPos bestSpot = findBestFlareSpot(level, scanPos);
+        if (bestSpot != null && canPlaceFlare(level, bestSpot)) {
+            level.setBlock(bestSpot, ModBlocks.FLARE.get().defaultBlockState(), 3);
+            placedFlares.add(bestSpot);
+            System.out.println("Placed smart flare at " + bestSpot);
             return true;
         }
         return false;
     }
 
-    private void scanChunkForDarkSpots(Level level, int chunkX, int chunkZ, boolean isPriority) {
-        // Check if this chunk is within our radius from the lantern
-        int lanternChunkX = worldPosition.getX() >> 4;
-        int lanternChunkZ = worldPosition.getZ() >> 4;
-        int chunkDistance = Math.max(
-                Math.abs(chunkX - lanternChunkX),
-                Math.abs(chunkZ - lanternChunkZ)
-        );
+    private BlockPos findBestFlareSpot(ServerLevel level, BlockPos center) {
+        BlockPos bestPos = null;
+        int minLight = 16;
 
-        if (chunkDistance > chunkRadius) {
-            return; // Skip chunks outside our radius
-        }
+        int maxY = Math.min(320, center.getY() + 64);
+        int minY = Math.max(-64, center.getY() - 32);
 
-        // Rest of the existing method remains the same
-        int startX = chunkX << 4;
-        int startZ = chunkZ << 4;
+        for (int y = minY; y < maxY; y += 2) {
+            BlockPos checkPos = new BlockPos(center.getX(), y, center.getZ());
 
-        int distanceFromCenter = Math.max(
-                Math.abs(chunkX - (worldPosition.getX() >> 4)),
-                Math.abs(chunkZ - (worldPosition.getZ() >> 4))
-        );
+            if (!level.getBlockState(checkPos).isAir()) continue;
 
-        int samplesPerChunk = isPriority ?
-                BASE_SAMPLES_PER_CHUNK :
-                Math.max(16, BASE_SAMPLES_PER_CHUNK - (distanceFromCenter * 4));
+            BlockState groundState = level.getBlockState(checkPos.below());
+            if (!groundState.isSolidRender()) continue;
 
-        for (int i = 0; i < samplesPerChunk; i++) {
-            // Use golden ratio for better distribution
-            float t = i * GOLDEN_RATIO;
-            int x = startX + Math.floorMod((int)(16 * (t - Math.floor(t))), 16);
-            int z = startZ + Math.floorMod((int)(16 * ((t * GOLDEN_RATIO) - Math.floor(t * GOLDEN_RATIO))), 16);
+            int light = Math.max(
+                    level.getBrightness(LightLayer.BLOCK, checkPos),
+                    level.getBrightness(LightLayer.SKY, checkPos)
+            );
 
-            scanColumn(level, x, z);
-        }
-    }
+            if (light < MIN_LIGHT_LEVEL && light < minLight) {
+                minLight = light;
+                bestPos = checkPos;
 
-    private void scanColumn(Level level, int x, int z) {
-        for (int y = MIN_SPAWN_HEIGHT; y < MAX_SPAWN_HEIGHT; y += HEIGHT_CHECK_INTERVAL) {
-            BlockPos checkPos = new BlockPos(x, y, z);
-            if (shouldPlaceFlare(level, checkPos)) {
-                level.setBlock(checkPos, ModBlocks.FLARE.get().defaultBlockState(), 3);
-                addNeighborChunksToPriority(checkPos);
+                if (light == 0) break;
+            }
+
+            if (light >= MIN_LIGHT_LEVEL && bestPos != null) {
                 break;
             }
         }
+
+        return bestPos;
     }
 
-    private void addNeighborChunksToPriority(BlockPos pos) {
-        int chunkX = pos.getX() >> 4;
-        int chunkZ = pos.getZ() >> 4;
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dz = -1; dz <= 1; dz++) {
-                if (dx == 0 && dz == 0) continue;
-                ChunkPos neighborChunk = new ChunkPos(chunkX + dx, chunkZ + dz);
-                if (!priorityChunks.contains(neighborChunk)) {
-                    priorityChunks.offer(neighborChunk);
-                }
-            }
-        }
-    }
-
-    private boolean shouldPlaceFlare(Level level, BlockPos pos) {
+    private boolean canPlaceFlare(ServerLevel level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        // Check if the block is air and not already a flare
-        if (!state.is(Blocks.AIR) || state.is(ModBlocks.FLARE.get())) {
+        if (!state.isAir() || state.is(ModBlocks.FLARE.get())) {
             return false;
         }
 
-        int blockLight = level.getBrightness(LightLayer.BLOCK, pos);
-        int skyLight = level.getBrightness(LightLayer.SKY, pos);
-        if (blockLight >= 7 || skyLight >= 7) {
-            return false;
-        }
-
-        // Check nearby positions for existing flares (in a 5x5x5 cube)
-        for (int dx = -2; dx <= 2; dx++) {
-            for (int dy = -2; dy <= 2; dy++) {
-                for (int dz = -2; dz <= 2; dz++) {
-                    BlockPos checkPos = pos.offset(dx, dy, dz);
-                    if (level.getBlockState(checkPos).is(ModBlocks.FLARE.get())) {
-                        return false;  // Don't place if there's already a flare nearby
-                    }
-                }
+        for (BlockPos existingFlare : placedFlares) {
+            if (existingFlare.distSqr(pos) < FLARE_SPACING_SQUARED) {
+                return false;
             }
         }
 
-        // Finally check if a zombie could spawn here
-        BlockPos spawnPos = pos.below();
-        return level.getBlockState(spawnPos).isValidSpawn(level, spawnPos, net.minecraft.world.entity.EntityType.ZOMBIE);
+        BlockPos groundPos = pos.below();
+        BlockState groundState = level.getBlockState(groundPos);
+
+        return groundState.isSolidRender() &&
+                groundState.isValidSpawn(level, groundPos, net.minecraft.world.entity.EntityType.ZOMBIE);
     }
 
-    public int getChunkRadius() {
-        return chunkRadius;
+    private void cleanupInvalidFlares(ServerLevel level) {
+        Iterator<BlockPos> iterator = placedFlares.iterator();
+
+        while (iterator.hasNext()) {
+            BlockPos flarePos = iterator.next();
+
+            if (!level.isLoaded(flarePos)) continue;
+
+            if (!level.getBlockState(flarePos).is(ModBlocks.FLARE.get())) {
+                iterator.remove();
+            }
+        }
     }
 
-    public void setChunkRadius(int radius) {
-        this.chunkRadius = Math.max(1, Math.min(radius, 8));
-        resetSpiralPattern();
+    public void forceRescan() {
+        scanInProgress = false;
+        lastFullScan = 0;
+        tickCounter = TICKS_BETWEEN_SCANS;
+        consecutiveEmptyScans = 0;
+        sleepUntil = 0;
+    }
+
+    public int getPlacedFlareCount() {
+        return placedFlares.size();
     }
 }

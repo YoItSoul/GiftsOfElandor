@@ -4,6 +4,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.block.Block;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -21,7 +22,7 @@ import java.util.*;
  *
  * @since 1.0
  */
-@EventBusSubscriber(modid = Goe.MODID, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = Goe.MODID)
 public final class Config {
 
     /**
@@ -40,24 +41,9 @@ public final class Config {
     private static final Map<Block, ItemStack> wandCatalysts = new HashMap<>();
 
     /**
-     * Configuration for primal aspects in the format "aspectName:displayName"
+     * Storage for pedestal recipes
      */
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> PRIMAL_ASPECTS;
-
-    /**
-     * Configuration for basic compound aspects
-     */
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> BASIC_COMPOUND_ASPECTS;
-
-    /**
-     * Configuration for advanced compound aspects
-     */
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> ADVANCED_COMPOUND_ASPECTS;
-
-    /**
-     * Configuration for item aspects
-     */
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> ITEM_ASPECTS;
+    private static final Map<String, PedestalRecipeData> pedestalRecipes = new HashMap<>();
 
     /**
      * Defines the radius of warding block effects
@@ -98,6 +84,21 @@ public final class Config {
      * List of entities that are whitelisted for warding effects
      */
     public static final ModConfigSpec.ConfigValue<List<? extends String>> WARDING_WHITELISTED_ENTITIES;
+
+    /**
+     * Pedestal crafting search radius
+     */
+    public static final ModConfigSpec.IntValue PEDESTAL_SEARCH_RADIUS;
+
+    /**
+     * Enable pedestal crafting
+     */
+    public static final ModConfigSpec.BooleanValue ENABLE_PEDESTAL_CRAFTING;
+
+    /**
+     * Pedestal recipe configurations
+     */
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> PEDESTAL_RECIPES;
 
     /**
      * Default list of whitelisted entities (not affected by warding_glyph)
@@ -144,1501 +145,21 @@ public final class Config {
             "minecraft:trader_llama"
     );
 
+    /**
+     * Default pedestal recipes
+     */
+    private static final List<String> DEFAULT_PEDESTAL_RECIPES = List.of(
+            "elandors_charm=minecraft:ender_pearl|goe:salis_mundus,minecraft:gold_ingot,minecraft:gold_ingot,minecraft:gold_ingot,minecraft:gold_ingot->goe:elandors_charm:1",
+            "pedestal=minecraft:hopper|goe:salis_mundus,minecraft:iron_ingot,minecraft:iron_ingot,minecraft:iron_ingot,minecraft:spruce_planks->goe:pedestal:1",
+            "empowered_lantern=minecraft:lantern|minecraft:glowstone,minecraft:campfire,minecraft:nether_star,goe:salis_mundus->goe:empowered_lantern:1",
+            "warding_lantern=minecraft:sea_lantern|minecraft:totem_of_undying,minecraft:blaze_powder,minecraft:ghast_tear,goe:salis_mundus->goe:warding_lantern:1"
+    );
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
     private static final ModConfigSpec.ConfigValue<List<? extends String>> WAND_CATALYST_MAPPINGS;
     public static final ModConfigSpec SPEC;
 
-
     static {
-
-        BUILDER.push("Aspects");
-
-        PRIMAL_ASPECTS = BUILDER
-                .comment("List of primal aspects in format: aspectName:displayName:colorHex")
-                .defineList("primalAspects",
-                        Arrays.asList(
-                                "Aer:Air:#87CEEB",
-                                "Terra:Earth:#8B4513",
-                                "Ignis:Fire:#FF4500",
-                                "Aqua:Water:#0000FF",
-                                "Ordo:Order:#FFFFFF",
-                                "Perditio:Entropy:#404040"
-                        ),
-                        () -> "NewAspect:NewName:#FFFFFF",
-                        obj -> obj instanceof String && ((String) obj).split(":").length == 3
-                );
-
-        BASIC_COMPOUND_ASPECTS = BUILDER
-                .comment("List of basic compound aspects (using ONLY primal aspects) in format: aspectName:displayName:colorHex->component1,component2")
-                .defineList("basicCompoundAspects",
-                        Arrays.asList(
-                                "Vacuos:Void:#000000->Aer,Perditio",
-                                "Lux:Light:#FFFF00->Aer,Ignis",
-                                "Motus:Motion:#00FFFF->Aer,Ordo",
-                                "Tempus:Time:#800080->Aer,Terra",
-                                "Victus:Life:#00FF7F->Aqua,Terra",
-                                "Vitreus:Crystal:#7FFFD4->Terra,Ordo",
-                                "Potentia:Power:#FFA500->Ordo,Ignis",
-                                "Permutatio:Exchange:#FF00FF->Perditio,Ordo",
-                                "Tenebrae:Darkness:#4A1A49->Vacuos,Lux",
-                                "Regnum:Dominion:#7851A9->Ordo,Terra"
-                        ),
-                        () -> "NewAspect:Name:#FFFFFF->Component1,Component2",
-                        entry -> {
-                            if (!(entry instanceof String)) return false;
-                            String[] mainParts = ((String) entry).split("->");
-                            if (mainParts.length != 2) return false;
-                            String[] nameData = mainParts[0].split(":");
-                            String[] components = mainParts[1].split(",");
-                            return nameData.length == 3 && components.length == 2;
-                        });
-
-        ADVANCED_COMPOUND_ASPECTS = BUILDER
-                .comment("List of advanced compound aspects (can use both primal and basic compound aspects) in format: aspectName:displayName:colorHex->component1,component2")
-                .defineList("advancedCompoundAspects",
-                        Arrays.asList(
-                                "Praecantatio:Magic:#9932CC->Vacuos,Potentia",
-                                "Auram:Aura:#C8A2C8->Praecantatio,Aer",
-                                "Alkimia:Alchemy:#2E8B57->Praecantatio,Aqua",
-                                "Vitium:Taint:#800020->Praecantatio,Perditio",
-                                "Metallum:Metal:#708090->Terra,Vitreus",
-                                "Mortuus:Death:#483D8B->Victus,Perditio",
-                                "Volatus:Flight:#E6E6FA->Aer,Motus",
-                                "Herba:Plant:#228B22->Terra,Victus",
-                                "Instrumentum:Tool:#CD853F->Metallum,Potentia",
-                                "Fabrico:Crafting:#DEB887->Instrumentum,Ordo",
-                                "Machina:Machine:#B8860B->Motus,Instrumentum",
-                                "Vinculum:Trap:#8B4513->Motus,Perditio",
-                                "Spiritus:Soul:#E6E6FA->Victus,Mortuus",
-                                "Cognitio:Mind:#DA70D6->Ignis,Spiritus",
-                                "Sensus:Senses:#FFB6C1->Aer,Spiritus",
-                                "Humanus:Human:#F5DEB3->Spiritus,Victus",
-                                "Bestia:Beast:#D2691E->Motus,Victus",
-                                "Exanimis:Undead:#6B8E23->Motus,Mortuus",
-                                "Gelum:Ice:#ADD8E6->Aqua,Perditio",
-                                "Alienis:Alien:#4B0082->Tenebrae,Vacuos",
-                                "Corpus:Body:#FF7F50->Mortuus,Bestia",
-                                "Fluctus:Wave:#00CED1->Aqua,Motus",
-                                "Sonus:Sound:#BA55D3->Aer,Vacuos",
-                                "Infernum:Infernal:#8B0000->Ignis,Praecantatio",
-                                "Desiderium:Desire:#FF1493->Spiritus,Vacuos"
-                        ),
-                        () -> "NewAspect:Name:#FFFFFF->Component1,Component2",
-                        entry -> {
-                            if (!(entry instanceof String)) return false;
-                            String[] mainParts = ((String) entry).split("->");
-                            if (mainParts.length != 2) return false;
-                            String[] nameData = mainParts[0].split(":");
-                            String[] components = mainParts[1].split(",");
-                            return nameData.length == 3 && components.length == 2;
-                        });
-
-        BUILDER.pop();
-
-        ITEM_ASPECTS = BUILDER
-                .comment("List of item aspects in format: itemid->aspect1:amount,aspect2:amount")
-                .defineList("itemAspects",
-                        Arrays.asList(
-                                "minecraft:diamond->Vitreus:3,Potentia:2",
-                                "minecraft:iron_ingot->Metallum:4",
-                                "minecraft:gold_ingot->Metallum:3,Desiderium:2",
-                                "minecraft:redstone->Potentia:3,Machina:2",
-                                "minecraft:glass->Vitreus:2",
-                                "minecraft:soul_sand->Spiritus:2,Terra:1",
-                                "minecraft:bone->Mortuus:2,Corpus:1",
-                                "minecraft:wheat_seeds->Victus:1,Herba:1",
-                                "minecraft:bookshelf->Cognitio:2,Herba:1",
-                                "minecraft:obsidian->Terra:2,Ignis:1,Vitreus:1",
-                                "minecraft:enchanting_table->Praecantatio:3,Cognitio:2,Vitreus:1",
-                                "minecraft:brewing_stand->Alkimia:2,Metallum:1,Ignis:1",
-                                "minecraft:ender_pearl->Alienis:3,Motus:2",
-                                "minecraft:blaze_powder->Ignis:2,Infernum:1",
-                                "minecraft:ice->Gelum:2,Aqua:1",
-                                "minecraft:soul_torch->Lux:1,Spiritus:1",
-                                "minecraft:compass->Metallum:1,Instrumentum:1,Motus:1",
-                                "minecraft:clock->Tempus:2,Metallum:1",
-                                "minecraft:dragon_breath->Auram:3,Alienis:2,Spiritus:1",
-                                "minecraft:elytra->Volatus:3,Motus:2,Bestia:1",
-                                "goe:amethyst_wand->Praecantatio:2,Instrumentum:2,Vitreus:1",
-                                "goe:elandors_charm->Praecantatio:4,Auram:2,Spiritus:1",
-                                "goe:elandors_wand->Praecantatio:8,Instrumentum:3,Auram:5",
-                                "goe:empowered_amethyst_wand->Praecantatio:4,Instrumentum:2,Vitreus:1",
-                                "goe:empowered_lantern->Lux:3,Potentia:2,Praecantatio:1",
-                                "goe:flare->Lux:2,Ignis:1",
-                                "goe:salis_mundus->Praecantatio:2,Permutatio:1",
-                                "goe:warding_lantern->Lux:2,Vinculum:2,Praecantatio:1",
-                                "minecraft:acacia_boat->Herba:2,Motus:1",
-                                "minecraft:acacia_button->Herba:1",
-                                "minecraft:acacia_chest_boat->Herba:2,Motus:1,Vacuos:1",
-                                "minecraft:acacia_door->Herba:2,Vinculum:1",
-                                "minecraft:acacia_fence->Herba:2,Vinculum:1",
-                                "minecraft:acacia_fence_gate->Herba:2,Vinculum:1,Motus:1",
-                                "minecraft:acacia_hanging_sign->Herba:2,Sensus:1",
-                                "minecraft:acacia_leaves->Herba:1",
-                                "minecraft:acacia_log->Herba:2",
-                                "minecraft:acacia_planks->Herba:1",
-                                "minecraft:acacia_pressure_plate->Herba:1,Machina:1",
-                                "minecraft:acacia_sapling->Herba:1,Victus:1",
-                                "minecraft:acacia_sign->Herba:1,Sensus:1",
-                                "minecraft:acacia_slab->Herba:1",
-                                "minecraft:acacia_stairs->Herba:1",
-                                "minecraft:acacia_trapdoor->Herba:1,Vinculum:1",
-                                "minecraft:acacia_wood->Herba:2",
-                                "minecraft:activator_rail->Metallum:2,Machina:1,Motus:1",
-                                "minecraft:air->Aer:1",
-                                "minecraft:allay_spawn_egg->Spiritus:2,Aer:1,Victus:1",
-                                "minecraft:allium->Herba:1,Sensus:1",
-                                "minecraft:amethyst_block->Vitreus:3",
-                                "minecraft:amethyst_cluster->Vitreus:3,Sensus:1",
-                                "minecraft:amethyst_shard->Vitreus:2",
-                                "minecraft:ancient_debris->Metallum:3,Ignis:2,Potentia:1",
-                                "minecraft:andesite->Terra:2",
-                                "minecraft:andesite_slab->Terra:1",
-                                "minecraft:andesite_stairs->Terra:1",
-                                "minecraft:andesite_wall->Terra:1,Vinculum:1",
-                                "minecraft:angler_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:anvil->Metallum:3,Instrumentum:2",
-                                "minecraft:apple->Victus:1,Herba:1",
-                                "minecraft:archer_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:armadillo_scute->Bestia:2,Vinculum:1",
-                                "minecraft:armadillo_spawn_egg->Bestia:2,Victus:1",
-                                "minecraft:armor_stand->Herba:1,Fabrico:1",
-                                "minecraft:arms_up_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:arrow->Motus:1,Instrumentum:1",
-                                "minecraft:axolotl_bucket->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:axolotl_spawn_egg->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:azalea->Herba:1,Victus:1",
-                                "minecraft:azalea_leaves->Herba:1",
-                                "minecraft:azure_bluet->Herba:1,Sensus:1",
-                                "minecraft:baked_potato->Victus:2",
-                                "minecraft:bamboo->Herba:1",
-                                "minecraft:bamboo_block->Herba:2",
-                                "minecraft:bamboo_button->Herba:1",
-                                "minecraft:bamboo_chest_raft->Herba:2,Aqua:1,Vacuos:1",
-                                "minecraft:bamboo_door->Herba:2,Vinculum:1",
-                                "minecraft:bamboo_fence->Herba:2,Vinculum:1",
-                                "minecraft:bamboo_fence_gate->Herba:2,Vinculum:1,Motus:1",
-                                "minecraft:bamboo_hanging_sign->Herba:2,Sensus:1",
-                                "minecraft:bamboo_mosaic->Herba:1,Fabrico:1",
-                                "minecraft:bamboo_mosaic_slab->Herba:1,Fabrico:1",
-                                "minecraft:bamboo_mosaic_stairs->Herba:1,Fabrico:1",
-                                "minecraft:bamboo_planks->Herba:1",
-                                "minecraft:bamboo_pressure_plate->Herba:1,Machina:1",
-                                "minecraft:bamboo_raft->Herba:2,Aqua:1",
-                                "minecraft:bamboo_sign->Herba:1,Sensus:1",
-                                "minecraft:bamboo_slab->Herba:1",
-                                "minecraft:bamboo_stairs->Herba:1",
-                                "minecraft:bamboo_trapdoor->Herba:1,Vinculum:1",
-                                "minecraft:barrel->Herba:2,Vacuos:2",
-                                "minecraft:barrier->Vinculum:3,Praecantatio:1",
-                                "minecraft:basalt->Terra:2,Ignis:1",
-                                "minecraft:bat_spawn_egg->Bestia:1,Victus:1,Volatus:1",
-                                "minecraft:beacon->Lux:3,Sensus:2,Potentia:2",
-                                "minecraft:bedrock->Terra:3,Vinculum:3",
-                                "minecraft:bee_nest->Herba:2,Bestia:1",
-                                "minecraft:bee_spawn_egg->Bestia:1,Victus:1,Volatus:1",
-                                "minecraft:beef->Bestia:1,Victus:1",
-                                "minecraft:beehive->Herba:2,Bestia:1,Fabrico:1",
-                                "minecraft:beetroot->Herba:1,Victus:1",
-                                "minecraft:beetroot_seeds->Herba:1,Victus:1",
-                                "minecraft:beetroot_soup->Herba:1,Victus:2",
-                                "minecraft:bell->Metallum:2,Sonus:2",
-                                "minecraft:big_dripleaf->Herba:2,Aqua:1",
-                                "minecraft:birch_boat->Herba:2,Motus:1",
-                                "minecraft:birch_button->Herba:1",
-                                "minecraft:birch_chest_boat->Herba:2,Motus:1,Vacuos:1",
-                                "minecraft:birch_door->Herba:2,Vinculum:1",
-                                "minecraft:birch_fence->Herba:2,Vinculum:1",
-                                "minecraft:birch_fence_gate->Herba:2,Vinculum:1,Motus:1",
-                                "minecraft:birch_hanging_sign->Herba:2,Sensus:1",
-                                "minecraft:birch_leaves->Herba:1",
-                                "minecraft:birch_log->Herba:2",
-                                "minecraft:birch_planks->Herba:1",
-                                "minecraft:birch_pressure_plate->Herba:1,Machina:1",
-                                "minecraft:birch_sapling->Herba:1,Victus:1",
-                                "minecraft:birch_sign->Herba:1,Sensus:1",
-                                "minecraft:birch_slab->Herba:1",
-                                "minecraft:birch_stairs->Herba:1",
-                                "minecraft:birch_trapdoor->Herba:1,Vinculum:1",
-                                "minecraft:birch_wood->Herba:2",
-                                "minecraft:black_banner->Herba:1,Sensus:2",
-                                "minecraft:black_bed->Herba:2,Victus:1",
-                                "minecraft:black_bundle->Herba:1,Vacuos:2",
-                                "minecraft:black_candle->Herba:1,Lux:1",
-                                "minecraft:black_carpet->Herba:1",
-                                "minecraft:black_concrete->Terra:2",
-                                "minecraft:black_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:black_dye->Sensus:1,Tenebrae:1",
-                                "minecraft:black_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:black_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:black_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:black_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:black_terracotta->Terra:2,Sensus:1",
-                                "minecraft:black_wool->Herba:1,Bestia:1",
-                                "minecraft:blackstone->Terra:2,Tenebrae:1",
-                                "minecraft:blackstone_slab->Terra:1,Tenebrae:1",
-                                "minecraft:blackstone_stairs->Terra:1,Tenebrae:1",
-                                "minecraft:blackstone_wall->Terra:1,Tenebrae:1,Vinculum:1",
-                                "minecraft:blade_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:blast_furnace->Metallum:3,Ignis:2,Machina:1",
-                                "minecraft:blaze_rod->Ignis:3,Infernum:1",
-                                "minecraft:blaze_spawn_egg->Ignis:2,Infernum:1,Victus:1",
-                                "minecraft:blue_banner->Herba:1,Sensus:2",
-                                "minecraft:blue_bed->Herba:2,Victus:1",
-                                "minecraft:blue_bundle->Herba:1,Vacuos:2",
-                                "minecraft:blue_candle->Herba:1,Lux:1",
-                                "minecraft:blue_carpet->Herba:1",
-                                "minecraft:blue_concrete->Terra:2",
-                                "minecraft:blue_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:blue_dye->Sensus:1,Aqua:1",
-                                "minecraft:blue_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:blue_ice->Gelum:3,Aqua:1",
-                                "minecraft:blue_orchid->Herba:1,Sensus:1",
-                                "minecraft:blue_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:blue_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:blue_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:blue_terracotta->Terra:2,Sensus:1",
-                                "minecraft:blue_wool->Herba:1,Bestia:1",
-                                "minecraft:bogged_spawn_egg->Victus:1,Corpus:1,Aqua:1",
-                                "minecraft:bolt_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:bone_block->Mortuus:2,Corpus:1",
-                                "minecraft:bone_meal->Mortuus:1,Victus:1",
-                                "minecraft:book->Cognitio:2,Herba:1",
-                                "minecraft:bordure_indented_banner_pattern->Sensus:2,Fabrico:1",
-                                "minecraft:bow->Instrumentum:2,Herba:1",
-                                "minecraft:bowl->Herba:1,Vacuos:1",
-                                "minecraft:brain_coral->Victus:2,Aqua:1",
-                                "minecraft:brain_coral_block->Victus:2,Aqua:1",
-                                "minecraft:brain_coral_fan->Victus:2,Aqua:1",
-                                "minecraft:bread->Victus:2",
-                                "minecraft:breeze_rod->Aer:2,Motus:1",
-                                "minecraft:breeze_spawn_egg->Aer:2,Motus:1,Victus:1",
-                                "minecraft:brewer_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:brick->Terra:1,Ignis:1",
-                                "minecraft:brick_slab->Terra:1,Ignis:1",
-                                "minecraft:brick_stairs->Terra:1,Ignis:1",
-                                "minecraft:brick_wall->Terra:1,Ignis:1,Vinculum:1",
-                                "minecraft:bricks->Terra:1,Ignis:1",
-                                "minecraft:brown_banner->Herba:1,Sensus:2",
-                                "minecraft:brown_bed->Herba:2,Victus:1",
-                                "minecraft:brown_bundle->Herba:1,Vacuos:2",
-                                "minecraft:brown_candle->Herba:1,Lux:1",
-                                "minecraft:brown_carpet->Herba:1",
-                                "minecraft:brown_concrete->Terra:2",
-                                "minecraft:brown_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:brown_dye->Sensus:1,Terra:1",
-                                "minecraft:brown_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:brown_mushroom->Herba:1,Tenebrae:1",
-                                "minecraft:brown_mushroom_block->Herba:2,Tenebrae:1",
-                                "minecraft:brown_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:brown_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:brown_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:brown_terracotta->Terra:2,Sensus:1",
-                                "minecraft:brown_wool->Herba:1,Bestia:1",
-                                "minecraft:brush->Instrumentum:2,Fabrico:1",
-                                "minecraft:bubble_coral->Victus:2,Aqua:1",
-                                "minecraft:bubble_coral_block->Victus:2,Aqua:1",
-                                "minecraft:bubble_coral_fan->Victus:2,Aqua:1",
-                                "minecraft:bucket->Metallum:2,Vacuos:1",
-                                "minecraft:budding_amethyst->Vitreus:3,Victus:1",
-                                "minecraft:bundle->Herba:1,Vacuos:2",
-                                "minecraft:burn_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:cactus->Herba:1,Vinculum:1",
-                                "minecraft:cake->Victus:3,Fabrico:1",
-                                "minecraft:calcite->Terra:2,Vitreus:1",
-                                "minecraft:calibrated_sculk_sensor->Sensus:3,Machina:2,Alienis:1",
-                                "minecraft:camel_spawn_egg->Bestia:2,Victus:1",
-                                "minecraft:campfire->Ignis:2,Lux:1",
-                                "minecraft:candle->Herba:1,Lux:1",
-                                "minecraft:carrot->Herba:1,Victus:1",
-                                "minecraft:carrot_on_a_stick->Herba:1,Instrumentum:1,Bestia:1",
-                                "minecraft:cartography_table->Herba:2,Cognitio:1",
-                                "minecraft:carved_pumpkin->Herba:1,Spiritus:1",
-                                "minecraft:cat_spawn_egg->Bestia:1,Victus:1",
-                                "minecraft:cauldron->Metallum:3,Vacuos:2",
-                                "minecraft:cave_spider_spawn_egg->Bestia:1,Victus:1,Tenebrae:1",
-                                "minecraft:chain->Metallum:2,Vinculum:1",
-                                "minecraft:chain_command_block->Machina:3,Regnum:2,Vinculum:1",
-                                "minecraft:chainmail_boots->Metallum:2,Vinculum:1",
-                                "minecraft:chainmail_chestplate->Metallum:2,Vinculum:1",
-                                "minecraft:chainmail_helmet->Metallum:2,Vinculum:1",
-                                "minecraft:chainmail_leggings->Metallum:2,Vinculum:1",
-                                "minecraft:charcoal->Ignis:2,Potentia:1",
-                                "minecraft:cherry_boat->Herba:2,Motus:1",
-                                "minecraft:cherry_button->Herba:1",
-                                "minecraft:cherry_chest_boat->Herba:2,Motus:1,Vacuos:1",
-                                "minecraft:cherry_door->Herba:2,Vinculum:1",
-                                "minecraft:cherry_fence->Herba:2,Vinculum:1",
-                                "minecraft:cherry_fence_gate->Herba:2,Vinculum:1,Motus:1",
-                                "minecraft:cherry_hanging_sign->Herba:2,Sensus:1",
-                                "minecraft:cherry_leaves->Herba:1",
-                                "minecraft:cherry_log->Herba:2",
-                                "minecraft:cherry_planks->Herba:1",
-                                "minecraft:cherry_pressure_plate->Herba:1,Machina:1",
-                                "minecraft:cherry_sapling->Herba:1,Victus:1",
-                                "minecraft:cherry_sign->Herba:1,Sensus:1",
-                                "minecraft:cherry_slab->Herba:1",
-                                "minecraft:cherry_stairs->Herba:1",
-                                "minecraft:cherry_trapdoor->Herba:1,Vinculum:1",
-                                "minecraft:cherry_wood->Herba:2",
-                                "minecraft:chest->Herba:2,Vacuos:2",
-                                "minecraft:chest_minecart->Metallum:2,Motus:1,Vacuos:2",
-                                "minecraft:chicken->Bestia:1,Victus:1",
-                                "minecraft:chicken_spawn_egg->Bestia:1,Victus:1",
-                                "minecraft:chipped_anvil->Metallum:3,Instrumentum:1",
-                                "minecraft:chiseled_bookshelf->Herba:2,Cognitio:2,Vacuos:1",
-                                "minecraft:chiseled_copper->Metallum:2,Fabrico:1",
-                                "minecraft:chiseled_deepslate->Terra:2,Fabrico:1",
-                                "minecraft:chiseled_nether_bricks->Terra:1,Ignis:1,Fabrico:1",
-                                "minecraft:chiseled_polished_blackstone->Terra:2,Tenebrae:1,Fabrico:1",
-                                "minecraft:chiseled_quartz_block->Vitreus:2,Terra:1,Fabrico:1",
-                                "minecraft:chiseled_red_sandstone->Terra:2,Fabrico:1",
-                                "minecraft:chiseled_resin_bricks->Vitreus:2,Terra:1,Fabrico:1",
-                                "minecraft:chiseled_sandstone->Terra:2,Fabrico:1",
-                                "minecraft:chiseled_stone_bricks->Terra:2,Fabrico:1",
-                                "minecraft:chiseled_tuff->Terra:2,Fabrico:1",
-                                "minecraft:chiseled_tuff_bricks->Terra:2,Fabrico:1",
-                                "minecraft:chorus_flower->Herba:2,Alienis:2",
-                                "minecraft:chorus_fruit->Herba:1,Alienis:2,Motus:1",
-                                "minecraft:chorus_plant->Herba:1,Alienis:1",
-                                "minecraft:clay->Terra:2,Aqua:1",
-                                "minecraft:clay_ball->Terra:1,Aqua:1",
-                                "minecraft:closed_eyeblossom->Herba:1,Sensus:2",
-                                "minecraft:coal->Potentia:2,Ignis:1",
-                                "minecraft:coal_block->Potentia:3,Ignis:2",
-                                "minecraft:coal_ore->Terra:1,Potentia:2",
-                                "minecraft:coarse_dirt->Terra:1",
-                                "minecraft:coast_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:cobbled_deepslate->Terra:2",
-                                "minecraft:cobbled_deepslate_slab->Terra:1",
-                                "minecraft:cobbled_deepslate_stairs->Terra:1",
-                                "minecraft:cobbled_deepslate_wall->Terra:1,Vinculum:1",
-                                "minecraft:cobblestone->Terra:1",
-                                "minecraft:cobblestone_slab->Terra:1",
-                                "minecraft:cobblestone_stairs->Terra:1",
-                                "minecraft:cobblestone_wall->Terra:1,Vinculum:1",
-                                "minecraft:cobweb->Vinculum:2,Bestia:1",
-                                "minecraft:cocoa_beans->Herba:1,Sensus:1,Victus:1",
-                                "minecraft:cod->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:cod_bucket->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:cod_spawn_egg->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:command_block->Machina:3,Regnum:2",
-                                "minecraft:command_block_minecart->Machina:3,Regnum:2,Motus:1",
-                                "minecraft:comparator->Machina:2,Sensus:1",
-                                "minecraft:composter->Herba:2,Alkimia:1",
-                                "minecraft:conduit->Aqua:3,Praecantatio:2,Sensus:1",
-                                "minecraft:cooked_beef->Bestia:1,Victus:2",
-                                "minecraft:cooked_chicken->Bestia:1,Victus:2",
-                                "minecraft:cooked_cod->Bestia:1,Victus:2,Aqua:1",
-                                "minecraft:cooked_mutton->Bestia:1,Victus:2",
-                                "minecraft:cooked_porkchop->Bestia:1,Victus:2",
-                                "minecraft:cooked_rabbit->Bestia:1,Victus:2",
-                                "minecraft:cooked_salmon->Bestia:1,Victus:2,Aqua:1",
-                                "minecraft:cookie->Victus:2,Herba:1",
-                                "minecraft:copper_block->Metallum:4",
-                                "minecraft:copper_bulb->Metallum:2,Lux:2",
-                                "minecraft:copper_door->Metallum:3,Vinculum:1",
-                                "minecraft:copper_grate->Metallum:2,Aer:1",
-                                "minecraft:copper_ingot->Metallum:3",
-                                "minecraft:copper_ore->Terra:1,Metallum:2",
-                                "minecraft:copper_trapdoor->Metallum:2,Vinculum:1",
-                                "minecraft:cornflower->Herba:1,Sensus:1",
-                                "minecraft:cow_spawn_egg->Bestia:1,Victus:1",
-                                "minecraft:cracked_deepslate_bricks->Terra:2,Perditio:1",
-                                "minecraft:cracked_deepslate_tiles->Terra:2,Perditio:1",
-                                "minecraft:cracked_nether_bricks->Terra:1,Ignis:1,Perditio:1",
-                                "minecraft:cracked_polished_blackstone_bricks->Terra:2,Tenebrae:1,Perditio:1",
-                                "minecraft:cracked_stone_bricks->Terra:1,Perditio:1",
-                                "minecraft:crafter->Herba:2,Machina:2,Fabrico:1",
-                                "minecraft:crafting_table->Herba:2,Fabrico:2",
-                                "minecraft:creaking_heart->Spiritus:3,Victus:2,Alienis:1",
-                                "minecraft:creaking_spawn_egg->Spiritus:2,Victus:1,Alienis:1",
-                                "minecraft:creeper_banner_pattern->Sensus:2,Fabrico:1",
-                                "minecraft:creeper_head->Spiritus:2,Perditio:1",
-                                "minecraft:creeper_spawn_egg->Ignis:1,Perditio:1,Victus:1",
-                                "minecraft:crimson_button->Herba:1,Infernum:1",
-                                "minecraft:crimson_door->Herba:2,Infernum:1,Vinculum:1",
-                                "minecraft:crimson_fence->Herba:2,Infernum:1,Vinculum:1",
-                                "minecraft:crimson_fence_gate->Herba:2,Infernum:1,Vinculum:1,Motus:1",
-                                "minecraft:crimson_fungus->Herba:1,Infernum:1",
-                                "minecraft:crimson_hanging_sign->Herba:2,Infernum:1,Sensus:1",
-                                "minecraft:crimson_hyphae->Herba:2,Infernum:1",
-                                "minecraft:crimson_nylium->Terra:1,Infernum:1",
-                                "minecraft:crimson_planks->Herba:1,Infernum:1",
-                                "minecraft:crimson_pressure_plate->Herba:1,Infernum:1,Machina:1",
-                                "minecraft:crimson_roots->Herba:1,Infernum:1",
-                                "minecraft:crimson_sign->Herba:1,Infernum:1,Sensus:1",
-                                "minecraft:crimson_slab->Herba:1,Infernum:1",
-                                "minecraft:crimson_stairs->Herba:1,Infernum:1",
-                                "minecraft:crimson_stem->Herba:2,Infernum:1",
-                                "minecraft:crimson_trapdoor->Herba:1,Infernum:1,Vinculum:1",
-                                "minecraft:crossbow->Instrumentum:2,Metallum:1,Herba:1",
-                                "minecraft:crying_obsidian->Terra:2,Ignis:1,Potentia:1,Alienis:1",
-                                "minecraft:cut_copper->Metallum:3,Fabrico:1",
-                                "minecraft:cut_copper_slab->Metallum:2,Fabrico:1",
-                                "minecraft:cut_copper_stairs->Metallum:2,Fabrico:1",
-                                "minecraft:cut_red_sandstone->Terra:2,Fabrico:1",
-                                "minecraft:cut_red_sandstone_slab->Terra:1,Fabrico:1",
-                                "minecraft:cut_sandstone->Terra:2,Fabrico:1",
-                                "minecraft:cut_sandstone_slab->Terra:1,Fabrico:1",
-                                "minecraft:cyan_banner->Herba:1,Sensus:2",
-                                "minecraft:cyan_bed->Herba:2,Victus:1",
-                                "minecraft:cyan_bundle->Herba:1,Vacuos:2",
-                                "minecraft:cyan_candle->Herba:1,Lux:1",
-                                "minecraft:cyan_carpet->Herba:1",
-                                "minecraft:cyan_concrete->Terra:2",
-                                "minecraft:cyan_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:cyan_dye->Sensus:1",
-                                "minecraft:cyan_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:cyan_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:cyan_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:cyan_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:cyan_terracotta->Terra:2,Sensus:1",
-                                "minecraft:cyan_wool->Herba:1,Bestia:1",
-                                "minecraft:damaged_anvil->Metallum:2,Perditio:1",
-                                "minecraft:dandelion->Herba:1,Sensus:1",
-                                "minecraft:danger_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:dark_oak_boat->Herba:2,Motus:1",
-                                "minecraft:dark_oak_button->Herba:1",
-                                "minecraft:dark_oak_chest_boat->Herba:2,Motus:1,Vacuos:1",
-                                "minecraft:dark_oak_door->Herba:2,Vinculum:1",
-                                "minecraft:dark_oak_fence->Herba:2,Vinculum:1",
-                                "minecraft:dark_oak_fence_gate->Herba:2,Vinculum:1,Motus:1",
-                                "minecraft:dark_oak_hanging_sign->Herba:2,Sensus:1",
-                                "minecraft:dark_oak_leaves->Herba:1",
-                                "minecraft:dark_oak_log->Herba:2",
-                                "minecraft:dark_oak_planks->Herba:1",
-                                "minecraft:dark_oak_pressure_plate->Herba:1,Machina:1",
-                                "minecraft:dark_oak_sapling->Herba:1,Victus:1",
-                                "minecraft:dark_oak_sign->Herba:1,Sensus:1",
-                                "minecraft:dark_oak_slab->Herba:1",
-                                "minecraft:dark_oak_stairs->Herba:1",
-                                "minecraft:dark_oak_trapdoor->Herba:1,Vinculum:1",
-                                "minecraft:dark_oak_wood->Herba:2",
-                                "minecraft:dark_prismarine->Aqua:2,Terra:2",
-                                "minecraft:dark_prismarine_slab->Aqua:1,Terra:1",
-                                "minecraft:dark_prismarine_stairs->Aqua:1,Terra:1",
-                                "minecraft:daylight_detector->Machina:2,Lux:2,Sensus:1",
-                                "minecraft:dead_brain_coral->Mortuus:1,Aqua:1",
-                                "minecraft:dead_brain_coral_block->Mortuus:2,Aqua:1",
-                                "minecraft:dead_brain_coral_fan->Mortuus:1,Aqua:1",
-                                "minecraft:dead_bubble_coral->Mortuus:1,Aqua:1",
-                                "minecraft:dead_bubble_coral_block->Mortuus:2,Aqua:1",
-                                "minecraft:dead_bubble_coral_fan->Mortuus:1,Aqua:1",
-                                "minecraft:dead_bush->Mortuus:1,Herba:1",
-                                "minecraft:dead_fire_coral->Mortuus:1,Aqua:1",
-                                "minecraft:dead_fire_coral_block->Mortuus:2,Aqua:1",
-                                "minecraft:dead_fire_coral_fan->Mortuus:1,Aqua:1",
-                                "minecraft:dead_horn_coral->Mortuus:1,Aqua:1",
-                                "minecraft:dead_horn_coral_block->Mortuus:2,Aqua:1",
-                                "minecraft:dead_horn_coral_fan->Mortuus:1,Aqua:1",
-                                "minecraft:dead_tube_coral->Mortuus:1,Aqua:1",
-                                "minecraft:dead_tube_coral_block->Mortuus:2,Aqua:1",
-                                "minecraft:dead_tube_coral_fan->Mortuus:1,Aqua:1",
-                                "minecraft:debug_stick->Praecantatio:3,Instrumentum:2",
-                                "minecraft:decorated_pot->Terra:2,Fabrico:1,Vacuos:1",
-                                "minecraft:deepslate->Terra:2",
-                                "minecraft:deepslate_brick_slab->Terra:1",
-                                "minecraft:deepslate_brick_stairs->Terra:1",
-                                "minecraft:deepslate_brick_wall->Terra:1,Vinculum:1",
-                                "minecraft:deepslate_bricks->Terra:2",
-                                "minecraft:deepslate_coal_ore->Terra:1,Potentia:2",
-                                "minecraft:deepslate_copper_ore->Terra:1,Metallum:2",
-                                "minecraft:deepslate_diamond_ore->Terra:1,Vitreus:2,Potentia:1",
-                                "minecraft:deepslate_emerald_ore->Terra:1,Vitreus:2,Potentia:1",
-                                "minecraft:deepslate_gold_ore->Terra:1,Metallum:2,Desiderium:1",
-                                "minecraft:deepslate_iron_ore->Terra:1,Metallum:2",
-                                "minecraft:deepslate_lapis_ore->Terra:1,Sensus:2,Praecantatio:1",
-                                "minecraft:deepslate_redstone_ore->Terra:1,Potentia:2,Machina:1",
-                                "minecraft:deepslate_tile_slab->Terra:1",
-                                "minecraft:deepslate_tile_stairs->Terra:1",
-                                "minecraft:deepslate_tile_wall->Terra:1,Vinculum:1",
-                                "minecraft:deepslate_tiles->Terra:2",
-                                "minecraft:detector_rail->Metallum:2,Machina:2,Sensus:1",
-                                "minecraft:diamond_axe->Vitreus:2,Instrumentum:2",
-                                "minecraft:diamond_block->Vitreus:4,Potentia:3",
-                                "minecraft:diamond_boots->Vitreus:3,Potentia:1",
-                                "minecraft:diamond_chestplate->Vitreus:3,Potentia:1",
-                                "minecraft:diamond_helmet->Vitreus:3,Potentia:1",
-                                "minecraft:diamond_hoe->Vitreus:2,Instrumentum:2",
-                                "minecraft:diamond_horse_armor->Vitreus:3,Bestia:2",
-                                "minecraft:diamond_leggings->Vitreus:3,Potentia:1",
-                                "minecraft:diamond_ore->Terra:1,Vitreus:2,Potentia:1",
-                                "minecraft:diamond_pickaxe->Vitreus:2,Instrumentum:2",
-                                "minecraft:diamond_shovel->Vitreus:2,Instrumentum:2",
-                                "minecraft:diamond_sword->Vitreus:2,Instrumentum:2",
-                                "minecraft:diorite->Terra:2",
-                                "minecraft:diorite_slab->Terra:1",
-                                "minecraft:diorite_stairs->Terra:1",
-                                "minecraft:diorite_wall->Terra:1,Vinculum:1",
-                                "minecraft:dirt->Terra:1",
-                                "minecraft:dirt_path->Terra:1,Motus:1",
-                                "minecraft:disc_fragment_5->Sensus:2,Perditio:1",
-                                "minecraft:dispenser->Machina:2,Vinculum:1",
-                                "minecraft:dolphin_spawn_egg->Bestia:2,Victus:1,Aqua:1",
-                                "minecraft:donkey_spawn_egg->Bestia:2,Victus:1",
-                                "minecraft:dragon_egg->Alienis:3,Spiritus:2,Victus:1",
-                                "minecraft:dragon_head->Alienis:3,Spiritus:2",
-                                "minecraft:dried_kelp->Herba:1,Aqua:1",
-                                "minecraft:dried_kelp_block->Herba:2,Aqua:1",
-                                "minecraft:dripstone_block->Terra:2",
-                                "minecraft:dropper->Machina:2,Vacuos:1",
-                                "minecraft:drowned_spawn_egg->Exanimis:1,Aqua:1,Victus:1",
-                                "minecraft:dune_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:echo_shard->Alienis:2,Sonus:2,Vitium:1",
-                                "minecraft:egg->Victus:1,Bestia:1",
-                                "minecraft:elder_guardian_spawn_egg->Spiritus:2,Aqua:2,Victus:1",
-                                "minecraft:emerald->Vitreus:2,Potentia:1",
-                                "minecraft:emerald_block->Vitreus:3,Potentia:2",
-                                "minecraft:emerald_ore->Terra:1,Vitreus:2,Potentia:1",
-                                "minecraft:enchanted_book->Cognitio:2,Praecantatio:2",
-                                "minecraft:enchanted_golden_apple->Victus:3,Praecantatio:2",
-                                "minecraft:end_crystal->Vitreus:2,Alienis:2",
-                                "minecraft:end_portal_frame->Alienis:3,Praecantatio:2",
-                                "minecraft:end_rod->Lux:2,Alienis:1",
-                                "minecraft:end_stone->Terra:2,Alienis:1",
-                                "minecraft:end_stone_brick_slab->Terra:1,Alienis:1",
-                                "minecraft:end_stone_brick_stairs->Terra:1,Alienis:1",
-                                "minecraft:end_stone_brick_wall->Terra:1,Alienis:1,Vinculum:1",
-                                "minecraft:end_stone_bricks->Terra:2,Alienis:1",
-                                "minecraft:ender_chest->Alienis:2,Vacuos:2,Praecantatio:1",
-                                "minecraft:ender_dragon_spawn_egg->Alienis:3,Bestia:2,Victus:1",
-                                "minecraft:ender_eye->Alienis:2,Sensus:2",
-                                "minecraft:enderman_spawn_egg->Alienis:2,Victus:1",
-                                "minecraft:endermite_spawn_egg->Alienis:1,Victus:1,Bestia:1",
-                                "minecraft:evoker_spawn_egg->Praecantatio:2,Victus:1,Humanus:1",
-                                "minecraft:experience_bottle->Cognitio:2,Praecantatio:1",
-                                "minecraft:explorer_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:exposed_chiseled_copper->Metallum:2,Fabrico:1,Perditio:1",
-                                "minecraft:exposed_copper->Metallum:3,Perditio:1",
-                                "minecraft:exposed_copper_bulb->Metallum:2,Lux:2,Perditio:1",
-                                "minecraft:exposed_copper_door->Metallum:3,Vinculum:1,Perditio:1",
-                                "minecraft:exposed_copper_grate->Metallum:2,Aer:1,Perditio:1",
-                                "minecraft:exposed_copper_trapdoor->Metallum:2,Vinculum:1,Perditio:1",
-                                "minecraft:exposed_cut_copper->Metallum:3,Fabrico:1,Perditio:1",
-                                "minecraft:exposed_cut_copper_slab->Metallum:2,Fabrico:1,Perditio:1",
-                                "minecraft:exposed_cut_copper_stairs->Metallum:2,Fabrico:1,Perditio:1",
-                                "minecraft:eye_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:farmland->Terra:1,Victus:1",
-                                "minecraft:feather->Volatus:1,Bestia:1",
-                                "minecraft:fermented_spider_eye->Sensus:2,Alkimia:1",
-                                "minecraft:fern->Herba:1",
-                                "minecraft:field_masoned_banner_pattern->Sensus:2,Fabrico:1",
-                                "minecraft:filled_map->Cognitio:2,Herba:1",
-                                "minecraft:fire_charge->Ignis:2",
-                                "minecraft:fire_coral->Victus:2,Aqua:1,Ignis:1",
-                                "minecraft:fire_coral_block->Victus:2,Aqua:1,Ignis:1",
-                                "minecraft:fire_coral_fan->Victus:2,Aqua:1,Ignis:1",
-                                "minecraft:firework_rocket->Ignis:2,Volatus:1",
-                                "minecraft:firework_star->Ignis:1,Sensus:1",
-                                "minecraft:fishing_rod->Instrumentum:2,Aqua:1",
-                                "minecraft:fletching_table->Herba:2,Instrumentum:1",
-                                "minecraft:flint->Terra:1",
-                                "minecraft:flint_and_steel->Ignis:1,Instrumentum:1",
-                                "minecraft:flow_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:flow_banner_pattern->Sensus:2,Fabrico:1",
-                                "minecraft:flow_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:flower_banner_pattern->Sensus:2,Fabrico:1",
-                                "minecraft:flower_pot->Terra:1,Vacuos:1",
-                                "minecraft:flowering_azalea->Herba:1,Victus:1,Sensus:1",
-                                "minecraft:flowering_azalea_leaves->Herba:1,Sensus:1",
-                                "minecraft:fox_spawn_egg->Bestia:1,Victus:1",
-                                "minecraft:friend_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:frog_spawn_egg->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:frogspawn->Victus:2,Aqua:1",
-                                "minecraft:furnace->Ignis:2,Machina:1",
-                                "minecraft:furnace_minecart->Metallum:2,Ignis:1,Motus:1",
-                                "minecraft:ghast_spawn_egg->Ignis:1,Spiritus:1,Victus:1",
-                                "minecraft:ghast_tear->Spiritus:2,Ignis:1",
-                                "minecraft:gilded_blackstone->Terra:2,Metallum:1,Desiderium:1",
-                                "minecraft:glass_bottle->Vitreus:1,Vacuos:1",
-                                "minecraft:glass_pane->Vitreus:1",
-                                "minecraft:glistering_melon_slice->Herba:1,Victus:1,Desiderium:1",
-                                "minecraft:globe_banner_pattern->Sensus:2,Fabrico:1",
-                                "minecraft:glow_berries->Herba:1,Victus:1,Lux:1",
-                                "minecraft:glow_ink_sac->Sensus:1,Lux:1,Bestia:1",
-                                "minecraft:glow_item_frame->Herba:1,Lux:1,Sensus:1",
-                                "minecraft:glow_lichen->Herba:1,Lux:1",
-                                "minecraft:glow_squid_spawn_egg->Bestia:1,Victus:1,Lux:1",
-                                "minecraft:glowstone->Lux:3",
-                                "minecraft:glowstone_dust->Lux:2",
-                                "minecraft:goat_horn->Bestia:2,Sonus:2",
-                                "minecraft:goat_spawn_egg->Bestia:1,Victus:1",
-                                "minecraft:gold_block->Metallum:4,Desiderium:2",
-                                "minecraft:gold_nugget->Metallum:1,Desiderium:1",
-                                "minecraft:gold_ore->Terra:1,Metallum:2,Desiderium:1",
-                                "minecraft:golden_apple->Victus:2,Praecantatio:1",
-                                "minecraft:golden_axe->Metallum:2,Instrumentum:2,Desiderium:1",
-                                "minecraft:golden_boots->Metallum:2,Desiderium:1",
-                                "minecraft:golden_carrot->Herba:1,Victus:1,Desiderium:1",
-                                "minecraft:golden_chestplate->Metallum:2,Desiderium:1",
-                                "minecraft:golden_helmet->Metallum:2,Desiderium:1",
-                                "minecraft:golden_hoe->Metallum:2,Instrumentum:2,Desiderium:1",
-                                "minecraft:golden_horse_armor->Metallum:2,Bestia:2,Desiderium:1",
-                                "minecraft:golden_leggings->Metallum:2,Desiderium:1",
-                                "minecraft:golden_pickaxe->Metallum:2,Instrumentum:2,Desiderium:1",
-                                "minecraft:golden_shovel->Metallum:2,Instrumentum:2,Desiderium:1",
-                                "minecraft:golden_sword->Metallum:2,Instrumentum:2,Desiderium:1",
-                                "minecraft:granite->Terra:2",
-                                "minecraft:granite_slab->Terra:1",
-                                "minecraft:granite_stairs->Terra:1",
-                                "minecraft:granite_wall->Terra:1,Vinculum:1",
-                                "minecraft:grass_block->Terra:1,Herba:1",
-                                "minecraft:gravel->Terra:1,Perditio:1",
-                                "minecraft:gray_banner->Herba:1,Sensus:2",
-                                "minecraft:gray_bed->Herba:2,Victus:1",
-                                "minecraft:gray_bundle->Herba:1,Vacuos:2",
-                                "minecraft:gray_candle->Herba:1,Lux:1",
-                                "minecraft:gray_carpet->Herba:1",
-                                "minecraft:gray_concrete->Terra:2",
-                                "minecraft:gray_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:gray_dye->Sensus:1",
-                                "minecraft:gray_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:gray_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:gray_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:gray_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:gray_terracotta->Terra:2,Sensus:1",
-                                "minecraft:gray_wool->Herba:1,Bestia:1",
-                                "minecraft:green_banner->Herba:1,Sensus:2",
-                                "minecraft:green_bed->Herba:2,Victus:1",
-                                "minecraft:green_bundle->Herba:1,Vacuos:2",
-                                "minecraft:green_candle->Herba:1,Lux:1",
-                                "minecraft:green_carpet->Herba:1",
-                                "minecraft:green_concrete->Terra:2",
-                                "minecraft:green_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:green_dye->Sensus:1,Herba:1",
-                                "minecraft:green_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:green_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:green_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:green_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:green_terracotta->Terra:2,Sensus:1",
-                                "minecraft:green_wool->Herba:1,Bestia:1",
-                                "minecraft:grindstone->Terra:2,Instrumentum:2",
-                                "minecraft:guardian_spawn_egg->Bestia:1,Victus:1,Aqua:2",
-                                "minecraft:gunpowder->Ignis:2,Perditio:1",
-                                "minecraft:guster_banner_pattern->Sensus:2,Fabrico:1",
-                                "minecraft:guster_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:hanging_roots->Herba:1,Terra:1",
-                                "minecraft:hay_block->Herba:3,Victus:1",
-                                "minecraft:heart_of_the_sea->Aqua:3,Praecantatio:2",
-                                "minecraft:heart_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:heartbreak_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:heavy_core->Terra:3,Metallum:2",
-                                "minecraft:heavy_weighted_pressure_plate->Metallum:2,Machina:1",
-                                "minecraft:hoglin_spawn_egg->Bestia:2,Victus:1,Infernum:1",
-                                "minecraft:honey_block->Victus:2,Vinculum:1",
-                                "minecraft:honey_bottle->Victus:2",
-                                "minecraft:honeycomb->Bestia:1,Herba:1",
-                                "minecraft:honeycomb_block->Bestia:2,Herba:2",
-                                "minecraft:hopper->Metallum:3,Vacuos:2,Machina:1",
-                                "minecraft:hopper_minecart->Metallum:3,Motus:1,Vacuos:2,Machina:1",
-                                "minecraft:horn_coral->Victus:2,Aqua:1",
-                                "minecraft:horn_coral_block->Victus:2,Aqua:1",
-                                "minecraft:horn_coral_fan->Victus:2,Aqua:1",
-                                "minecraft:horse_spawn_egg->Bestia:2,Victus:1",
-                                "minecraft:host_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:howl_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:husk_spawn_egg->Exanimis:1,Terra:1,Victus:1",
-                                "minecraft:infested_chiseled_stone_bricks->Terra:2,Bestia:1",
-                                "minecraft:infested_cobblestone->Terra:1,Bestia:1",
-                                "minecraft:infested_cracked_stone_bricks->Terra:1,Bestia:1,Perditio:1",
-                                "minecraft:infested_deepslate->Terra:2,Bestia:1",
-                                "minecraft:infested_mossy_stone_bricks->Terra:1,Bestia:1,Herba:1",
-                                "minecraft:infested_stone->Terra:1,Bestia:1",
-                                "minecraft:infested_stone_bricks->Terra:1,Bestia:1",
-                                "minecraft:ink_sac->Sensus:1,Bestia:1",
-                                "minecraft:iron_axe->Metallum:2,Instrumentum:2",
-                                "minecraft:iron_bars->Metallum:2,Vinculum:1",
-                                "minecraft:iron_block->Metallum:4",
-                                "minecraft:iron_boots->Metallum:2",
-                                "minecraft:iron_chestplate->Metallum:2",
-                                "minecraft:iron_door->Metallum:3,Vinculum:1",
-                                "minecraft:iron_golem_spawn_egg->Metallum:2,Victus:1,Humanus:1",
-                                "minecraft:iron_helmet->Metallum:2",
-                                "minecraft:iron_hoe->Metallum:2,Instrumentum:2",
-                                "minecraft:iron_horse_armor->Metallum:2,Bestia:2",
-                                "minecraft:iron_leggings->Metallum:2",
-                                "minecraft:iron_nugget->Metallum:1",
-                                "minecraft:iron_ore->Terra:1,Metallum:2",
-                                "minecraft:iron_pickaxe->Metallum:2,Instrumentum:2",
-                                "minecraft:iron_shovel->Metallum:2,Instrumentum:2",
-                                "minecraft:iron_sword->Metallum:2,Instrumentum:2",
-                                "minecraft:iron_trapdoor->Metallum:2,Vinculum:1",
-                                "minecraft:item_frame->Herba:1,Sensus:1",
-                                "minecraft:jack_o_lantern->Herba:1,Lux:2",
-                                "minecraft:jigsaw->Machina:2,Fabrico:1",
-                                "minecraft:jukebox->Herba:2,Sensus:2",
-                                "minecraft:jungle_boat->Herba:2,Motus:1",
-                                "minecraft:jungle_button->Herba:1",
-                                "minecraft:jungle_chest_boat->Herba:2,Motus:1,Vacuos:1",
-                                "minecraft:jungle_door->Herba:2,Vinculum:1",
-                                "minecraft:jungle_fence->Herba:2,Vinculum:1",
-                                "minecraft:jungle_fence_gate->Herba:2,Vinculum:1,Motus:1",
-                                "minecraft:jungle_hanging_sign->Herba:2,Sensus:1",
-                                "minecraft:jungle_leaves->Herba:1",
-                                "minecraft:jungle_log->Herba:2",
-                                "minecraft:jungle_planks->Herba:1",
-                                "minecraft:jungle_pressure_plate->Herba:1,Machina:1",
-                                "minecraft:jungle_sapling->Herba:1,Victus:1",
-                                "minecraft:jungle_sign->Herba:1,Sensus:1",
-                                "minecraft:jungle_slab->Herba:1",
-                                "minecraft:jungle_stairs->Herba:1",
-                                "minecraft:jungle_trapdoor->Herba:1,Vinculum:1",
-                                "minecraft:jungle_wood->Herba:2",
-                                "minecraft:kelp->Herba:1,Aqua:1",
-                                "minecraft:knowledge_book->Cognitio:3,Praecantatio:1",
-                                "minecraft:ladder->Herba:1,Motus:1",
-                                "minecraft:lantern->Metallum:1,Lux:2",
-                                "minecraft:lapis_block->Sensus:3,Praecantatio:2",
-                                "minecraft:lapis_lazuli->Sensus:2,Praecantatio:1",
-                                "minecraft:lapis_ore->Terra:1,Sensus:2,Praecantatio:1",
-                                "minecraft:large_amethyst_bud->Vitreus:2",
-                                "minecraft:large_fern->Herba:2",
-                                "minecraft:lava_bucket->Metallum:2,Ignis:2",
-                                "minecraft:lead->Bestia:1,Vinculum:1",
-                                "minecraft:leather->Bestia:1,Corpus:1",
-                                "minecraft:leather_boots->Bestia:1,Corpus:1",
-                                "minecraft:leather_chestplate->Bestia:1,Corpus:1",
-                                "minecraft:leather_helmet->Bestia:1,Corpus:1",
-                                "minecraft:leather_horse_armor->Bestia:2,Corpus:1",
-                                "minecraft:leather_leggings->Bestia:1,Corpus:1",
-                                "minecraft:lectern->Herba:2,Cognitio:2",
-                                "minecraft:lever->Herba:1,Machina:1",
-                                "minecraft:light->Lux:3,Praecantatio:1",
-                                "minecraft:light_blue_banner->Herba:1,Sensus:2",
-                                "minecraft:light_blue_bed->Herba:2,Victus:1",
-                                "minecraft:light_blue_bundle->Herba:1,Vacuos:2",
-                                "minecraft:light_blue_candle->Herba:1,Lux:1",
-                                "minecraft:light_blue_carpet->Herba:1",
-                                "minecraft:light_blue_concrete->Terra:2",
-                                "minecraft:light_blue_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:light_blue_dye->Sensus:1,Aqua:1",
-                                "minecraft:light_blue_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:light_blue_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:light_blue_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:light_blue_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:light_blue_terracotta->Terra:2,Sensus:1",
-                                "minecraft:light_blue_wool->Herba:1,Bestia:1",
-                                "minecraft:light_gray_banner->Herba:1,Sensus:2",
-                                "minecraft:light_gray_bed->Herba:2,Victus:1",
-                                "minecraft:light_gray_bundle->Herba:1,Vacuos:2",
-                                "minecraft:light_gray_candle->Herba:1,Lux:1",
-                                "minecraft:light_gray_carpet->Herba:1",
-                                "minecraft:light_gray_concrete->Terra:2",
-                                "minecraft:light_gray_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:light_gray_dye->Sensus:1",
-                                "minecraft:light_gray_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:light_gray_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:light_gray_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:light_gray_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:light_gray_terracotta->Terra:2,Sensus:1",
-                                "minecraft:light_gray_wool->Herba:1,Bestia:1",
-                                "minecraft:light_weighted_pressure_plate->Metallum:2,Machina:1,Desiderium:1",
-                                "minecraft:lightning_rod->Metallum:2,Tempus:1",
-                                "minecraft:lilac->Herba:2,Sensus:1",
-                                "minecraft:lily_of_the_valley->Herba:1,Sensus:1",
-                                "minecraft:lily_pad->Herba:1,Aqua:1",
-                                "minecraft:lime_banner->Herba:1,Sensus:2",
-                                "minecraft:lime_bed->Herba:2,Victus:1",
-                                "minecraft:lime_bundle->Herba:1,Vacuos:2",
-                                "minecraft:lime_candle->Herba:1,Lux:1",
-                                "minecraft:lime_carpet->Herba:1",
-                                "minecraft:lime_concrete->Terra:2",
-                                "minecraft:lime_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:lime_dye->Sensus:1,Herba:1",
-                                "minecraft:lime_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:lime_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:lime_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:lime_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:lime_terracotta->Terra:2,Sensus:1",
-                                "minecraft:lime_wool->Herba:1,Bestia:1",
-                                "minecraft:lingering_potion->Alkimia:2,Victus:1,Vacuos:1",
-                                "minecraft:llama_spawn_egg->Bestia:2,Victus:1",
-                                "minecraft:lodestone->Metallum:3,Motus:2",
-                                "minecraft:loom->Herba:2,Fabrico:1",
-                                "minecraft:mace->Metallum:2,Instrumentum:2,Potentia:1",
-                                "minecraft:magenta_banner->Herba:1,Sensus:2",
-                                "minecraft:magenta_bed->Herba:2,Victus:1",
-                                "minecraft:magenta_bundle->Herba:1,Vacuos:2",
-                                "minecraft:magenta_candle->Herba:1,Lux:1",
-                                "minecraft:magenta_carpet->Herba:1",
-                                "minecraft:magenta_concrete->Terra:2",
-                                "minecraft:magenta_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:magenta_dye->Sensus:1",
-                                "minecraft:magenta_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:magenta_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:magenta_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:magenta_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:magenta_terracotta->Terra:2,Sensus:1",
-                                "minecraft:magenta_wool->Herba:1,Bestia:1",
-                                "minecraft:magma_block->Terra:1,Ignis:2",
-                                "minecraft:magma_cream->Ignis:2,Motus:1",
-                                "minecraft:magma_cube_spawn_egg->Ignis:2,Motus:1,Victus:1",
-                                "minecraft:mangrove_boat->Herba:2,Motus:1",
-                                "minecraft:mangrove_button->Herba:1",
-                                "minecraft:mangrove_chest_boat->Herba:2,Motus:1,Vacuos:1",
-                                "minecraft:mangrove_door->Herba:2,Vinculum:1",
-                                "minecraft:mangrove_fence->Herba:2,Vinculum:1",
-                                "minecraft:mangrove_fence_gate->Herba:2,Vinculum:1,Motus:1",
-                                "minecraft:mangrove_hanging_sign->Herba:2,Sensus:1",
-                                "minecraft:mangrove_leaves->Herba:1",
-                                "minecraft:mangrove_log->Herba:2",
-                                "minecraft:mangrove_planks->Herba:1",
-                                "minecraft:mangrove_pressure_plate->Herba:1,Machina:1",
-                                "minecraft:mangrove_propagule->Herba:1,Victus:1",
-                                "minecraft:mangrove_roots->Herba:1,Terra:1",
-                                "minecraft:mangrove_sign->Herba:1,Sensus:1",
-                                "minecraft:mangrove_slab->Herba:1",
-                                "minecraft:mangrove_stairs->Herba:1",
-                                "minecraft:mangrove_trapdoor->Herba:1,Vinculum:1",
-                                "minecraft:mangrove_wood->Herba:2",
-                                "minecraft:map->Cognitio:2,Herba:1",
-                                "minecraft:medium_amethyst_bud->Vitreus:1",
-                                "minecraft:melon->Herba:2,Victus:1",
-                                "minecraft:melon_seeds->Herba:1,Victus:1",
-                                "minecraft:melon_slice->Herba:1,Victus:1",
-                                "minecraft:milk_bucket->Metallum:2,Bestia:1,Victus:1",
-                                "minecraft:minecart->Metallum:2,Motus:1",
-                                "minecraft:miner_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:mojang_banner_pattern->Sensus:2,Fabrico:1",
-                                "minecraft:mooshroom_spawn_egg->Bestia:1,Victus:1,Praecantatio:1",
-                                "minecraft:moss_block->Herba:2,Terra:1",
-                                "minecraft:moss_carpet->Herba:1",
-                                "minecraft:mossy_cobblestone->Terra:1,Herba:1",
-                                "minecraft:mossy_cobblestone_slab->Terra:1,Herba:1",
-                                "minecraft:mossy_cobblestone_stairs->Terra:1,Herba:1",
-                                "minecraft:mossy_cobblestone_wall->Terra:1,Herba:1,Vinculum:1",
-                                "minecraft:mossy_stone_brick_slab->Terra:1,Herba:1",
-                                "minecraft:mossy_stone_brick_stairs->Terra:1,Herba:1",
-                                "minecraft:mossy_stone_brick_wall->Terra:1,Herba:1,Vinculum:1",
-                                "minecraft:mossy_stone_bricks->Terra:1,Herba:1",
-                                "minecraft:mourner_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:mud->Terra:1,Aqua:1",
-                                "minecraft:mud_brick_slab->Terra:1,Aqua:1",
-                                "minecraft:mud_brick_stairs->Terra:1,Aqua:1",
-                                "minecraft:mud_brick_wall->Terra:1,Aqua:1,Vinculum:1",
-                                "minecraft:mud_bricks->Terra:2,Aqua:1",
-                                "minecraft:muddy_mangrove_roots->Herba:1,Terra:1,Aqua:1",
-                                "minecraft:mule_spawn_egg->Bestia:2,Victus:1",
-                                "minecraft:mushroom_stem->Herba:2",
-                                "minecraft:mushroom_stew->Herba:2,Victus:1",
-                                "minecraft:music_disc_11->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_13->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_5->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_blocks->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_cat->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_chirp->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_creator->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_creator_music_box->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_far->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_mall->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_mellohi->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_otherside->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_pigstep->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_precipice->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_relic->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_stal->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_strad->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_wait->Sensus:3,Sonus:2",
-                                "minecraft:music_disc_ward->Sensus:3,Sonus:2",
-                                "minecraft:mutton->Bestia:1,Victus:1",
-                                "minecraft:mycelium->Terra:1,Herba:1,Praecantatio:1",
-                                "minecraft:name_tag->Bestia:1,Humanus:1,Vinculum:1",
-                                "minecraft:nautilus_shell->Bestia:2,Aqua:1",
-                                "minecraft:nether_brick->Terra:1,Ignis:1",
-                                "minecraft:nether_brick_fence->Terra:1,Ignis:1,Vinculum:1",
-                                "minecraft:nether_brick_slab->Terra:1,Ignis:1",
-                                "minecraft:nether_brick_stairs->Terra:1,Ignis:1",
-                                "minecraft:nether_brick_wall->Terra:1,Ignis:1,Vinculum:1",
-                                "minecraft:nether_bricks->Terra:1,Ignis:1",
-                                "minecraft:nether_gold_ore->Terra:1,Metallum:2,Desiderium:1,Ignis:1",
-                                "minecraft:nether_quartz_ore->Terra:1,Vitreus:2,Ignis:1",
-                                "minecraft:nether_sprouts->Herba:1,Infernum:1",
-                                "minecraft:nether_star->Praecantatio:4,Lux:3,Alienis:2",
-                                "minecraft:nether_wart->Herba:1,Infernum:1,Alkimia:1",
-                                "minecraft:nether_wart_block->Herba:2,Infernum:1",
-                                "minecraft:netherite_axe->Metallum:3,Instrumentum:2,Ignis:1",
-                                "minecraft:netherite_block->Metallum:4,Ignis:2,Potentia:1",
-                                "minecraft:netherite_boots->Metallum:3,Ignis:1",
-                                "minecraft:netherite_chestplate->Metallum:3,Ignis:1",
-                                "minecraft:netherite_helmet->Metallum:3,Ignis:1",
-                                "minecraft:netherite_hoe->Metallum:3,Instrumentum:2,Ignis:1",
-                                "minecraft:netherite_ingot->Metallum:3,Ignis:1",
-                                "minecraft:netherite_leggings->Metallum:3,Ignis:1",
-                                "minecraft:netherite_pickaxe->Metallum:3,Instrumentum:2,Ignis:1",
-                                "minecraft:netherite_scrap->Metallum:2,Ignis:1",
-                                "minecraft:netherite_shovel->Metallum:3,Instrumentum:2,Ignis:1",
-                                "minecraft:netherite_sword->Metallum:3,Instrumentum:2,Ignis:1",
-                                "minecraft:netherite_upgrade_smithing_template->Metallum:2,Fabrico:2,Ignis:1",
-                                "minecraft:netherrack->Terra:1,Ignis:1",
-                                "minecraft:note_block->Herba:2,Sonus:2",
-                                "minecraft:oak_boat->Herba:2,Motus:1",
-                                "minecraft:oak_button->Herba:1",
-                                "minecraft:oak_chest_boat->Herba:2,Motus:1,Vacuos:1",
-                                "minecraft:oak_door->Herba:2,Vinculum:1",
-                                "minecraft:oak_fence->Herba:2,Vinculum:1",
-                                "minecraft:oak_fence_gate->Herba:2,Vinculum:1,Motus:1",
-                                "minecraft:oak_hanging_sign->Herba:2,Sensus:1",
-                                "minecraft:oak_leaves->Herba:1",
-                                "minecraft:oak_log->Herba:2",
-                                "minecraft:oak_planks->Herba:1",
-                                "minecraft:oak_pressure_plate->Herba:1,Machina:1",
-                                "minecraft:oak_sapling->Herba:1,Victus:1",
-                                "minecraft:oak_sign->Herba:1,Sensus:1",
-                                "minecraft:oak_slab->Herba:1",
-                                "minecraft:oak_stairs->Herba:1",
-                                "minecraft:oak_trapdoor->Herba:1,Vinculum:1",
-                                "minecraft:oak_wood->Herba:2",
-                                "minecraft:observer->Terra:1,Sensus:2,Machina:1",
-                                "minecraft:ocelot_spawn_egg->Bestia:1,Victus:1",
-                                "minecraft:ochre_froglight->Lux:2,Bestia:1",
-                                "minecraft:ominous_bottle->Praecantatio:2,Vitium:1",
-                                "minecraft:ominous_trial_key->Metallum:2,Vitium:2,Praecantatio:1",
-                                "minecraft:open_eyeblossom->Herba:1,Sensus:2,Volatus:1",
-                                "minecraft:orange_banner->Herba:1,Sensus:2",
-                                "minecraft:orange_bed->Herba:2,Victus:1",
-                                "minecraft:orange_bundle->Herba:1,Vacuos:2",
-                                "minecraft:orange_candle->Herba:1,Lux:1",
-                                "minecraft:orange_carpet->Herba:1",
-                                "minecraft:orange_concrete->Terra:2",
-                                "minecraft:orange_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:orange_dye->Sensus:1",
-                                "minecraft:orange_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:orange_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:orange_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:orange_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:orange_terracotta->Terra:2,Sensus:1",
-                                "minecraft:orange_tulip->Herba:1,Sensus:1",
-                                "minecraft:orange_wool->Herba:1,Bestia:1",
-                                "minecraft:oxeye_daisy->Herba:1,Sensus:1",
-                                "minecraft:oxidized_chiseled_copper->Metallum:2,Fabrico:1,Permutatio:2",
-                                "minecraft:oxidized_copper->Metallum:3,Permutatio:2",
-                                "minecraft:oxidized_copper_bulb->Metallum:2,Lux:2,Permutatio:1",
-                                "minecraft:oxidized_copper_door->Metallum:3,Vinculum:1,Permutatio:1",
-                                "minecraft:oxidized_copper_grate->Metallum:2,Aer:1,Permutatio:1",
-                                "minecraft:oxidized_copper_trapdoor->Metallum:2,Vinculum:1,Permutatio:1",
-                                "minecraft:oxidized_cut_copper->Metallum:3,Fabrico:1,Permutatio:1",
-                                "minecraft:oxidized_cut_copper_slab->Metallum:2,Fabrico:1,Permutatio:1",
-                                "minecraft:oxidized_cut_copper_stairs->Metallum:2,Fabrico:1,Permutatio:1",
-                                "minecraft:packed_ice->Gelum:3",
-                                "minecraft:packed_mud->Terra:2,Aqua:1",
-                                "minecraft:painting->Herba:1,Sensus:2",
-                                "minecraft:pale_hanging_moss->Herba:1,Sensus:1",
-                                "minecraft:pale_moss_block->Herba:2",
-                                "minecraft:pale_moss_carpet->Herba:1",
-                                "minecraft:pale_oak_boat->Herba:2,Motus:1",
-                                "minecraft:pale_oak_button->Herba:1",
-                                "minecraft:pale_oak_chest_boat->Herba:2,Motus:1,Vacuos:1",
-                                "minecraft:pale_oak_door->Herba:2,Vinculum:1",
-                                "minecraft:pale_oak_fence->Herba:2,Vinculum:1",
-                                "minecraft:pale_oak_fence_gate->Herba:2,Vinculum:1,Motus:1",
-                                "minecraft:pale_oak_hanging_sign->Herba:2,Sensus:1",
-                                "minecraft:pale_oak_leaves->Herba:1",
-                                "minecraft:pale_oak_log->Herba:2",
-                                "minecraft:pale_oak_planks->Herba:1",
-                                "minecraft:pale_oak_pressure_plate->Herba:1,Machina:1",
-                                "minecraft:pale_oak_sapling->Herba:1,Victus:1",
-                                "minecraft:pale_oak_sign->Herba:1,Sensus:1",
-                                "minecraft:pale_oak_slab->Herba:1",
-                                "minecraft:pale_oak_stairs->Herba:1",
-                                "minecraft:pale_oak_trapdoor->Herba:1,Vinculum:1",
-                                "minecraft:pale_oak_wood->Herba:2",
-                                "minecraft:panda_spawn_egg->Bestia:2,Victus:1",
-                                "minecraft:paper->Herba:1,Cognitio:1",
-                                "minecraft:parrot_spawn_egg->Bestia:1,Victus:1,Volatus:1",
-                                "minecraft:pearlescent_froglight->Lux:2,Bestia:1",
-                                "minecraft:peony->Herba:2,Sensus:1",
-                                "minecraft:petrified_oak_slab->Herba:1,Terra:1",
-                                "minecraft:phantom_membrane->Spiritus:2,Volatus:1",
-                                "minecraft:phantom_spawn_egg->Spiritus:1,Volatus:1,Victus:1",
-                                "minecraft:pig_spawn_egg->Bestia:1,Victus:1",
-                                "minecraft:piglin_banner_pattern->Sensus:2,Fabrico:1",
-                                "minecraft:piglin_brute_spawn_egg->Bestia:1,Infernum:1,Victus:1",
-                                "minecraft:piglin_head->Spiritus:2,Infernum:1",
-                                "minecraft:piglin_spawn_egg->Bestia:1,Infernum:1,Victus:1",
-                                "minecraft:pillager_spawn_egg->Humanus:1,Vinculum:1,Victus:1",
-                                "minecraft:pink_banner->Herba:1,Sensus:2",
-                                "minecraft:pink_bed->Herba:2,Victus:1",
-                                "minecraft:pink_bundle->Herba:1,Vacuos:2",
-                                "minecraft:pink_candle->Herba:1,Lux:1",
-                                "minecraft:pink_carpet->Herba:1",
-                                "minecraft:pink_concrete->Terra:2",
-                                "minecraft:pink_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:pink_dye->Sensus:1",
-                                "minecraft:pink_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:pink_petals->Herba:1,Sensus:1",
-                                "minecraft:pink_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:pink_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:pink_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:pink_terracotta->Terra:2,Sensus:1",
-                                "minecraft:pink_tulip->Herba:1,Sensus:1",
-                                "minecraft:pink_wool->Herba:1,Bestia:1",
-                                "minecraft:piston->Machina:2,Terra:1,Motus:1",
-                                "minecraft:pitcher_plant->Herba:1,Vinculum:1",
-                                "minecraft:pitcher_pod->Herba:1,Vinculum:1",
-                                "minecraft:player_head->Spiritus:3,Humanus:2",
-                                "minecraft:plenty_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:podzol->Terra:1,Herba:1",
-                                "minecraft:pointed_dripstone->Terra:1,Aqua:1",
-                                "minecraft:poisonous_potato->Herba:1,Victus:1,Vitium:1",
-                                "minecraft:polar_bear_spawn_egg->Bestia:2,Victus:1,Gelum:1",
-                                "minecraft:polished_andesite->Terra:2,Fabrico:1",
-                                "minecraft:polished_andesite_slab->Terra:1,Fabrico:1",
-                                "minecraft:polished_andesite_stairs->Terra:1,Fabrico:1",
-                                "minecraft:polished_basalt->Terra:2,Ignis:1,Fabrico:1",
-                                "minecraft:polished_blackstone->Terra:2,Tenebrae:1,Fabrico:1",
-                                "minecraft:polished_blackstone_brick_slab->Terra:1,Tenebrae:1,Fabrico:1",
-                                "minecraft:polished_blackstone_brick_stairs->Terra:1,Tenebrae:1,Fabrico:1",
-                                "minecraft:polished_blackstone_brick_wall->Terra:1,Tenebrae:1,Fabrico:1,Vinculum:1",
-                                "minecraft:polished_blackstone_bricks->Terra:2,Tenebrae:1,Fabrico:1",
-                                "minecraft:polished_blackstone_button->Terra:1,Tenebrae:1,Machina:1",
-                                "minecraft:polished_blackstone_pressure_plate->Terra:1,Tenebrae:1,Machina:1",
-                                "minecraft:polished_blackstone_slab->Terra:1,Tenebrae:1,Fabrico:1",
-                                "minecraft:polished_blackstone_stairs->Terra:1,Tenebrae:1,Fabrico:1",
-                                "minecraft:polished_blackstone_wall->Terra:1,Tenebrae:1,Fabrico:1,Vinculum:1",
-                                "minecraft:polished_deepslate->Terra:2,Fabrico:1",
-                                "minecraft:polished_deepslate_slab->Terra:1,Fabrico:1",
-                                "minecraft:polished_deepslate_stairs->Terra:1,Fabrico:1",
-                                "minecraft:polished_deepslate_wall->Terra:1,Fabrico:1,Vinculum:1",
-                                "minecraft:polished_diorite->Terra:2,Fabrico:1",
-                                "minecraft:polished_diorite_slab->Terra:1,Fabrico:1",
-                                "minecraft:polished_diorite_stairs->Terra:1,Fabrico:1",
-                                "minecraft:polished_granite->Terra:2,Fabrico:1",
-                                "minecraft:polished_granite_slab->Terra:1,Fabrico:1",
-                                "minecraft:polished_granite_stairs->Terra:1,Fabrico:1",
-                                "minecraft:polished_tuff->Terra:2,Fabrico:1",
-                                "minecraft:polished_tuff_slab->Terra:1,Fabrico:1",
-                                "minecraft:polished_tuff_stairs->Terra:1,Fabrico:1",
-                                "minecraft:polished_tuff_wall->Terra:1,Fabrico:1,Vinculum:1",
-                                "minecraft:popped_chorus_fruit->Herba:1,Alienis:1,Ignis:1",
-                                "minecraft:poppy->Herba:1,Sensus:1",
-                                "minecraft:porkchop->Bestia:1,Victus:1",
-                                "minecraft:potato->Herba:1,Victus:1",
-                                "minecraft:potion->Alkimia:2,Victus:1,Aqua:1",
-                                "minecraft:powder_snow_bucket->Metallum:2,Gelum:1",
-                                "minecraft:powered_rail->Metallum:2,Machina:1,Potentia:1",
-                                "minecraft:prismarine->Aqua:2,Terra:1",
-                                "minecraft:prismarine_brick_slab->Aqua:1,Terra:1,Fabrico:1",
-                                "minecraft:prismarine_brick_stairs->Aqua:1,Terra:1,Fabrico:1",
-                                "minecraft:prismarine_bricks->Aqua:2,Terra:1,Fabrico:1",
-                                "minecraft:prismarine_crystals->Vitreus:2,Aqua:1",
-                                "minecraft:prismarine_shard->Aqua:1,Terra:1",
-                                "minecraft:prismarine_slab->Aqua:1,Terra:1",
-                                "minecraft:prismarine_stairs->Aqua:1,Terra:1",
-                                "minecraft:prismarine_wall->Aqua:1,Terra:1,Vinculum:1",
-                                "minecraft:prize_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:pufferfish->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:pufferfish_bucket->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:pufferfish_spawn_egg->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:pumpkin->Herba:2",
-                                "minecraft:pumpkin_pie->Herba:1,Victus:2",
-                                "minecraft:pumpkin_seeds->Herba:1,Victus:1",
-                                "minecraft:purple_banner->Herba:1,Sensus:2",
-                                "minecraft:purple_bed->Herba:2,Victus:1",
-                                "minecraft:purple_bundle->Herba:1,Vacuos:2",
-                                "minecraft:purple_candle->Herba:1,Lux:1",
-                                "minecraft:purple_carpet->Herba:1",
-                                "minecraft:purple_concrete->Terra:2",
-                                "minecraft:purple_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:purple_dye->Sensus:1",
-                                "minecraft:purple_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:purple_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:purple_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:purple_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:purple_terracotta->Terra:2,Sensus:1",
-                                "minecraft:purple_wool->Herba:1,Bestia:1",
-                                "minecraft:purpur_block->Alienis:2,Terra:1",
-                                "minecraft:purpur_pillar->Alienis:2,Terra:1",
-                                "minecraft:purpur_slab->Alienis:1,Terra:1",
-                                "minecraft:purpur_stairs->Alienis:1,Terra:1",
-                                "minecraft:quartz->Vitreus:2,Terra:1",
-                                "minecraft:quartz_block->Vitreus:2,Terra:1",
-                                "minecraft:quartz_bricks->Vitreus:2,Terra:1,Fabrico:1",
-                                "minecraft:quartz_pillar->Vitreus:2,Terra:1",
-                                "minecraft:quartz_slab->Vitreus:1,Terra:1",
-                                "minecraft:quartz_stairs->Vitreus:1,Terra:1",
-                                "minecraft:rabbit->Bestia:1,Victus:1",
-                                "minecraft:rabbit_foot->Bestia:1,Motus:1,Victus:1",
-                                "minecraft:rabbit_hide->Bestia:1,Corpus:1",
-                                "minecraft:rabbit_spawn_egg->Bestia:1,Victus:1",
-                                "minecraft:rabbit_stew->Bestia:1,Victus:2",
-                                "minecraft:rail->Metallum:2,Motus:1",
-                                "minecraft:raiser_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:ravager_spawn_egg->Bestia:2,Victus:1,Vinculum:1",
-                                "minecraft:raw_copper->Metallum:2",
-                                "minecraft:raw_copper_block->Metallum:3",
-                                "minecraft:raw_gold->Metallum:2,Desiderium:1",
-                                "minecraft:raw_gold_block->Metallum:3,Desiderium:2",
-                                "minecraft:raw_iron->Metallum:2",
-                                "minecraft:raw_iron_block->Metallum:3",
-                                "minecraft:recovery_compass->Metallum:2,Instrumentum:1,Spiritus:1",
-                                "minecraft:red_banner->Herba:1,Sensus:2",
-                                "minecraft:red_bed->Herba:2,Victus:1",
-                                "minecraft:red_bundle->Herba:1,Vacuos:2",
-                                "minecraft:red_candle->Herba:1,Lux:1",
-                                "minecraft:red_carpet->Herba:1",
-                                "minecraft:red_concrete->Terra:2",
-                                "minecraft:red_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:red_dye->Sensus:1",
-                                "minecraft:red_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:red_mushroom->Herba:1,Victus:1",
-                                "minecraft:red_mushroom_block->Herba:2,Victus:1",
-                                "minecraft:red_nether_brick_slab->Terra:1,Ignis:1",
-                                "minecraft:red_nether_brick_stairs->Terra:1,Ignis:1",
-                                "minecraft:red_nether_brick_wall->Terra:1,Ignis:1,Vinculum:1",
-                                "minecraft:red_nether_bricks->Terra:1,Ignis:1",
-                                "minecraft:red_sand->Terra:1",
-                                "minecraft:red_sandstone->Terra:2",
-                                "minecraft:red_sandstone_slab->Terra:1",
-                                "minecraft:red_sandstone_stairs->Terra:1",
-                                "minecraft:red_sandstone_wall->Terra:1,Vinculum:1",
-                                "minecraft:red_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:red_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:red_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:red_terracotta->Terra:2,Sensus:1",
-                                "minecraft:red_tulip->Herba:1,Sensus:1",
-                                "minecraft:red_wool->Herba:1,Bestia:1",
-                                "minecraft:redstone_block->Potentia:3,Machina:2",
-                                "minecraft:redstone_lamp->Potentia:2,Lux:2",
-                                "minecraft:redstone_ore->Terra:1,Potentia:2,Machina:1",
-                                "minecraft:redstone_torch->Potentia:1,Lux:1",
-                                "minecraft:reinforced_deepslate->Terra:3,Vinculum:2",
-                                "minecraft:repeater->Machina:2,Potentia:1",
-                                "minecraft:repeating_command_block->Machina:3,Regnum:2",
-                                "minecraft:resin_block->Herba:2,Vinculum:1",
-                                "minecraft:resin_brick->Herba:1,Terra:1,Vinculum:1",
-                                "minecraft:resin_brick_slab->Herba:1,Terra:1",
-                                "minecraft:resin_brick_stairs->Herba:1,Terra:1",
-                                "minecraft:resin_brick_wall->Herba:1,Terra:1,Vinculum:1",
-                                "minecraft:resin_bricks->Herba:2,Terra:1,Vinculum:1",
-                                "minecraft:resin_clump->Herba:1,Vinculum:1",
-                                "minecraft:respawn_anchor->Alienis:3,Potentia:2",
-                                "minecraft:rib_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:rooted_dirt->Terra:1,Herba:1",
-                                "minecraft:rose_bush->Herba:2,Sensus:1",
-                                "minecraft:rotten_flesh->Corpus:1,Bestia:1,Mortuus:1",
-                                "minecraft:saddle->Bestia:2,Motus:1",
-                                "minecraft:salmon->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:salmon_bucket->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:salmon_spawn_egg->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:sand->Terra:1",
-                                "minecraft:sandstone->Terra:2",
-                                "minecraft:sandstone_slab->Terra:1",
-                                "minecraft:sandstone_stairs->Terra:1",
-                                "minecraft:sandstone_wall->Terra:1,Vinculum:1",
-                                "minecraft:scaffolding->Herba:2,Motus:1",
-                                "minecraft:scrape_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:sculk->Sensus:2,Alienis:1",
-                                "minecraft:sculk_catalyst->Sensus:3,Alienis:2,Mortuus:1",
-                                "minecraft:sculk_sensor->Sensus:3,Machina:2,Alienis:1",
-                                "minecraft:sculk_shrieker->Sensus:3,Sonus:2,Alienis:1",
-                                "minecraft:sculk_vein->Sensus:1,Alienis:1",
-                                "minecraft:sea_lantern->Lux:3,Aqua:2",
-                                "minecraft:sea_pickle->Herba:1,Lux:1,Aqua:1",
-                                "minecraft:seagrass->Herba:1,Aqua:1",
-                                "minecraft:sentry_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:shaper_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:sheaf_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:shears->Metallum:2,Instrumentum:1",
-                                "minecraft:sheep_spawn_egg->Bestia:1,Victus:1",
-                                "minecraft:shelter_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:shield->Herba:2,Metallum:1,Vinculum:1",
-                                "minecraft:short_grass->Herba:1",
-                                "minecraft:shroomlight->Herba:2,Lux:2",
-                                "minecraft:shulker_box->Alienis:2,Vacuos:2",
-                                "minecraft:shulker_shell->Alienis:2,Vinculum:1",
-                                "minecraft:shulker_spawn_egg->Alienis:2,Victus:1",
-                                "minecraft:silence_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:silverfish_spawn_egg->Bestia:1,Victus:1,Terra:1",
-                                "minecraft:skeleton_horse_spawn_egg->Bestia:1,Exanimis:1,Victus:1",
-                                "minecraft:skeleton_skull->Exanimis:2,Spiritus:1",
-                                "minecraft:skeleton_spawn_egg->Exanimis:1,Victus:1",
-                                "minecraft:skull_banner_pattern->Sensus:2,Fabrico:1",
-                                "minecraft:skull_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:slime_ball->Motus:1,Victus:1",
-                                "minecraft:slime_block->Motus:2,Victus:1,Vinculum:1",
-                                "minecraft:slime_spawn_egg->Motus:1,Victus:1,Bestia:1",
-                                "minecraft:small_amethyst_bud->Vitreus:1",
-                                "minecraft:small_dripleaf->Herba:1,Aqua:1",
-                                "minecraft:smithing_table->Herba:2,Metallum:2,Fabrico:1",
-                                "minecraft:smoker->Herba:2,Ignis:1,Machina:1",
-                                "minecraft:smooth_basalt->Terra:2,Ignis:1,Fabrico:1",
-                                "minecraft:smooth_quartz->Vitreus:2,Terra:1,Fabrico:1",
-                                "minecraft:smooth_quartz_slab->Vitreus:1,Terra:1,Fabrico:1",
-                                "minecraft:smooth_quartz_stairs->Vitreus:1,Terra:1,Fabrico:1",
-                                "minecraft:smooth_red_sandstone->Terra:2,Fabrico:1",
-                                "minecraft:smooth_red_sandstone_slab->Terra:1,Fabrico:1",
-                                "minecraft:smooth_red_sandstone_stairs->Terra:1,Fabrico:1",
-                                "minecraft:smooth_sandstone->Terra:2,Fabrico:1",
-                                "minecraft:smooth_sandstone_slab->Terra:1,Fabrico:1",
-                                "minecraft:smooth_sandstone_stairs->Terra:1,Fabrico:1",
-                                "minecraft:smooth_stone->Terra:1,Fabrico:1",
-                                "minecraft:smooth_stone_slab->Terra:1,Fabrico:1",
-                                "minecraft:sniffer_egg->Bestia:1,Victus:2",
-                                "minecraft:sniffer_spawn_egg->Bestia:1,Victus:1,Terra:1",
-                                "minecraft:snort_pottery_sherd->Terra:1,Cognitio:1",
-                                "minecraft:snout_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:snow->Gelum:1",
-                                "minecraft:snow_block->Gelum:2",
-                                "minecraft:snow_golem_spawn_egg->Gelum:2,Victus:1",
-                                "minecraft:snowball->Gelum:1",
-                                "minecraft:soul_campfire->Ignis:2,Lux:1,Spiritus:1",
-                                "minecraft:soul_lantern->Metallum:1,Lux:2,Spiritus:1",
-                                "minecraft:soul_soil->Terra:1,Spiritus:1",
-                                "minecraft:spawner->Bestia:2,Vinculum:2,Praecantatio:1",
-                                "minecraft:spectral_arrow->Motus:1,Instrumentum:1,Lux:1",
-                                "minecraft:spider_eye->Bestia:1,Sensus:1",
-                                "minecraft:spider_spawn_egg->Bestia:1,Victus:1",
-                                "minecraft:spire_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:splash_potion->Alkimia:2,Victus:1,Motus:1",
-                                "minecraft:sponge->Aqua:2,Vacuos:1",
-                                "minecraft:spore_blossom->Herba:1,Aer:1",
-                                "minecraft:spruce_boat->Herba:2,Motus:1",
-                                "minecraft:spruce_button->Herba:1",
-                                "minecraft:spruce_chest_boat->Herba:2,Motus:1,Vacuos:1",
-                                "minecraft:spruce_door->Herba:2,Vinculum:1",
-                                "minecraft:spruce_fence->Herba:2,Vinculum:1",
-                                "minecraft:spruce_fence_gate->Herba:2,Vinculum:1,Motus:1",
-                                "minecraft:spruce_hanging_sign->Herba:2,Sensus:1",
-                                "minecraft:spruce_leaves->Herba:1",
-                                "minecraft:spruce_log->Herba:2",
-                                "minecraft:spruce_planks->Herba:1",
-                                "minecraft:spruce_pressure_plate->Herba:1,Machina:1",
-                                "minecraft:spruce_sapling->Herba:1,Victus:1",
-                                "minecraft:spruce_sign->Herba:1,Sensus:1",
-                                "minecraft:spruce_slab->Herba:1",
-                                "minecraft:spruce_stairs->Herba:1",
-                                "minecraft:spruce_trapdoor->Herba:1,Vinculum:1",
-                                "minecraft:spruce_wood->Herba:2",
-                                "minecraft:spyglass->Vitreus:2,Sensus:2",
-                                "minecraft:squid_spawn_egg->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:stick->Herba:1",
-                                "minecraft:sticky_piston->Machina:2,Terra:1,Motus:1,Vinculum:1",
-                                "minecraft:stone->Terra:1",
-                                "minecraft:stone_axe->Terra:1,Instrumentum:2",
-                                "minecraft:stone_brick_slab->Terra:1",
-                                "minecraft:stone_brick_stairs->Terra:1",
-                                "minecraft:stone_brick_wall->Terra:1,Vinculum:1",
-                                "minecraft:stone_bricks->Terra:2",
-                                "minecraft:stone_button->Terra:1,Machina:1",
-                                "minecraft:stone_hoe->Terra:1,Instrumentum:2",
-                                "minecraft:stone_pickaxe->Terra:1,Instrumentum:2",
-                                "minecraft:stone_pressure_plate->Terra:1,Machina:1",
-                                "minecraft:stone_shovel->Terra:1,Instrumentum:2",
-                                "minecraft:stone_slab->Terra:1",
-                                "minecraft:stone_stairs->Terra:1",
-                                "minecraft:stone_sword->Terra:1,Instrumentum:2",
-                                "minecraft:stonecutter->Terra:2,Instrumentum:1",
-                                "minecraft:stray_spawn_egg->Exanimis:1,Gelum:1,Victus:1",
-                                "minecraft:strider_spawn_egg->Bestia:1,Ignis:1,Victus:1",
-                                "minecraft:string->Bestia:1,Instrumentum:1",
-                                "minecraft:stripped_acacia_log->Herba:2",
-                                "minecraft:stripped_acacia_wood->Herba:2",
-                                "minecraft:stripped_bamboo_block->Herba:2",
-                                "minecraft:stripped_birch_log->Herba:2",
-                                "minecraft:stripped_birch_wood->Herba:2",
-                                "minecraft:stripped_cherry_log->Herba:2",
-                                "minecraft:stripped_cherry_wood->Herba:2",
-                                "minecraft:stripped_crimson_hyphae->Herba:2,Infernum:1",
-                                "minecraft:stripped_crimson_stem->Herba:2,Infernum:1",
-                                "minecraft:stripped_dark_oak_log->Herba:2",
-                                "minecraft:stripped_dark_oak_wood->Herba:2",
-                                "minecraft:stripped_jungle_log->Herba:2",
-                                "minecraft:stripped_jungle_wood->Herba:2",
-                                "minecraft:stripped_mangrove_log->Herba:2",
-                                "minecraft:stripped_mangrove_wood->Herba:2",
-                                "minecraft:stripped_oak_log->Herba:2",
-                                "minecraft:stripped_oak_wood->Herba:2",
-                                "minecraft:stripped_pale_oak_log->Herba:2",
-                                "minecraft:stripped_pale_oak_wood->Herba:2",
-                                "minecraft:stripped_spruce_log->Herba:2",
-                                "minecraft:stripped_spruce_wood->Herba:2",
-                                "minecraft:stripped_warped_hyphae->Herba:2,Alienis:1",
-                                "minecraft:stripped_warped_stem->Herba:2,Alienis:1",
-                                "minecraft:structure_block->Machina:3,Regnum:2",
-                                "minecraft:structure_void->Vacuos:3,Machina:2",
-                                "minecraft:sugar->Victus:1,Herba:1",
-                                "minecraft:sugar_cane->Herba:1,Aqua:1",
-                                "minecraft:sunflower->Herba:2,Sensus:1,Lux:1",
-                                "minecraft:suspicious_gravel->Terra:1,Perditio:1,Cognitio:1",
-                                "minecraft:suspicious_sand->Terra:1,Cognitio:1",
-                                "minecraft:suspicious_stew->Herba:2,Victus:1,Praecantatio:1",
-                                "minecraft:sweet_berries->Herba:1,Victus:1",
-                                "minecraft:tadpole_bucket->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:tadpole_spawn_egg->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:tall_grass->Herba:1",
-                                "minecraft:target->Herba:2,Sensus:1",
-                                "minecraft:terracotta->Terra:2",
-                                "minecraft:tide_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:tinted_glass->Vitreus:2,Tenebrae:1",
-                                "minecraft:tipped_arrow->Motus:1,Instrumentum:1,Alkimia:1",
-                                "minecraft:tnt->Ignis:3,Perditio:2",
-                                "minecraft:tnt_minecart->Metallum:2,Motus:1,Ignis:2,Perditio:1",
-                                "minecraft:torch->Lux:1",
-                                "minecraft:torchflower->Herba:1,Lux:1,Sensus:1",
-                                "minecraft:torchflower_seeds->Herba:1,Lux:1,Victus:1",
-                                "minecraft:totem_of_undying->Spiritus:3,Praecantatio:2,Victus:1",
-                                "minecraft:trader_llama_spawn_egg->Bestia:2,Victus:1,Permutatio:1",
-                                "minecraft:trapped_chest->Herba:2,Vacuos:2,Vinculum:1",
-                                "minecraft:trial_key->Metallum:2,Praecantatio:2",
-                                "minecraft:trial_spawner->Bestia:2,Vinculum:2,Praecantatio:2",
-                                "minecraft:trident->Metallum:2,Instrumentum:2,Aqua:1",
-                                "minecraft:tripwire_hook->Metallum:1,Vinculum:2",
-                                "minecraft:tropical_fish->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:tropical_fish_bucket->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:tropical_fish_spawn_egg->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:tube_coral->Victus:2,Aqua:1",
-                                "minecraft:tube_coral_block->Victus:2,Aqua:1",
-                                "minecraft:tube_coral_fan->Victus:2,Aqua:1",
-                                "minecraft:tuff->Terra:2",
-                                "minecraft:tuff_brick_slab->Terra:1,Fabrico:1",
-                                "minecraft:tuff_brick_stairs->Terra:1,Fabrico:1",
-                                "minecraft:tuff_brick_wall->Terra:1,Fabrico:1,Vinculum:1",
-                                "minecraft:tuff_bricks->Terra:2,Fabrico:1",
-                                "minecraft:tuff_slab->Terra:1",
-                                "minecraft:tuff_stairs->Terra:1",
-                                "minecraft:tuff_wall->Terra:1,Vinculum:1",
-                                "minecraft:turtle_egg->Bestia:1,Victus:2",
-                                "minecraft:turtle_helmet->Bestia:2,Vinculum:1",
-                                "minecraft:turtle_scute->Bestia:2",
-                                "minecraft:turtle_spawn_egg->Bestia:1,Victus:1,Aqua:1",
-                                "minecraft:twisting_vines->Herba:1,Alienis:1",
-                                "minecraft:vault->Metallum:3,Vacuos:2,Vinculum:2",
-                                "minecraft:verdant_froglight->Lux:2,Bestia:1",
-                                "minecraft:vex_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:vex_spawn_egg->Spiritus:2,Volatus:1,Victus:1",
-                                "minecraft:villager_spawn_egg->Humanus:2,Victus:1",
-                                "minecraft:vindicator_spawn_egg->Humanus:1,Vinculum:1,Victus:1",
-                                "minecraft:vine->Herba:1",
-                                "minecraft:wandering_trader_spawn_egg->Humanus:1,Permutatio:1,Victus:1",
-                                "minecraft:ward_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:warden_spawn_egg->Sensus:2,Tenebrae:1,Victus:1",
-                                "minecraft:warped_button->Herba:1,Alienis:1",
-                                "minecraft:warped_door->Herba:2,Alienis:1,Vinculum:1",
-                                "minecraft:warped_fence->Herba:2,Alienis:1,Vinculum:1",
-                                "minecraft:warped_fence_gate->Herba:2,Alienis:1,Vinculum:1,Motus:1",
-                                "minecraft:warped_fungus->Herba:1,Alienis:1",
-                                "minecraft:warped_fungus_on_a_stick->Herba:1,Alienis:1,Instrumentum:1,Bestia:1",
-                                "minecraft:warped_hanging_sign->Herba:2,Alienis:1,Sensus:1",
-                                "minecraft:warped_hyphae->Herba:2,Alienis:1",
-                                "minecraft:warped_nylium->Terra:1,Alienis:1",
-                                "minecraft:warped_planks->Herba:1,Alienis:1",
-                                "minecraft:warped_pressure_plate->Herba:1,Alienis:1,Machina:1",
-                                "minecraft:warped_roots->Herba:1,Alienis:1",
-                                "minecraft:warped_sign->Herba:1,Alienis:1,Sensus:1",
-                                "minecraft:warped_slab->Herba:1,Alienis:1",
-                                "minecraft:warped_stairs->Herba:1,Alienis:1",
-                                "minecraft:warped_stem->Herba:2,Alienis:1",
-                                "minecraft:warped_trapdoor->Herba:1,Alienis:1,Vinculum:1",
-                                "minecraft:warped_wart_block->Herba:2,Alienis:1",
-                                "minecraft:water_bucket->Metallum:2,Aqua:2",
-                                "minecraft:waxed_chiseled_copper->Metallum:2,Fabrico:1,Vinculum:1",
-                                "minecraft:waxed_copper_block->Metallum:3,Vinculum:1",
-                                "minecraft:waxed_copper_bulb->Metallum:2,Lux:2,Vinculum:1",
-                                "minecraft:waxed_copper_door->Metallum:3,Vinculum:2",
-                                "minecraft:waxed_copper_grate->Metallum:2,Aer:1,Vinculum:1",
-                                "minecraft:waxed_copper_trapdoor->Metallum:2,Vinculum:2",
-                                "minecraft:waxed_cut_copper->Metallum:3,Fabrico:1,Vinculum:1",
-                                "minecraft:waxed_cut_copper_slab->Metallum:2,Fabrico:1,Vinculum:1",
-                                "minecraft:waxed_cut_copper_stairs->Metallum:2,Fabrico:1,Vinculum:1",
-                                "minecraft:waxed_exposed_chiseled_copper->Metallum:2,Fabrico:1,Perditio:1,Vinculum:1",
-                                "minecraft:waxed_exposed_copper->Metallum:3,Perditio:1,Vinculum:1",
-                                "minecraft:waxed_exposed_copper_bulb->Metallum:2,Lux:2,Perditio:1,Vinculum:1",
-                                "minecraft:waxed_exposed_copper_door->Metallum:3,Vinculum:2,Perditio:1",
-                                "minecraft:waxed_exposed_copper_grate->Metallum:2,Aer:1,Perditio:1,Vinculum:1",
-                                "minecraft:waxed_exposed_copper_trapdoor->Metallum:2,Vinculum:2,Perditio:1",
-                                "minecraft:waxed_exposed_cut_copper->Metallum:3,Fabrico:1,Perditio:1,Vinculum:1",
-                                "minecraft:waxed_exposed_cut_copper_slab->Metallum:2,Fabrico:1,Perditio:1,Vinculum:1",
-                                "minecraft:waxed_exposed_cut_copper_stairs->Metallum:2,Fabrico:1,Perditio:1,Vinculum:1",
-                                "minecraft:waxed_oxidized_chiseled_copper->Metallum:2,Fabrico:1,Permutatio:2,Vinculum:1",
-                                "minecraft:waxed_oxidized_copper->Metallum:3,Permutatio:2,Vinculum:1",
-                                "minecraft:waxed_oxidized_copper_bulb->Metallum:2,Lux:2,Permutatio:1,Vinculum:1",
-                                "minecraft:waxed_oxidized_copper_door->Metallum:3,Vinculum:2,Permutatio:1",
-                                "minecraft:waxed_oxidized_copper_grate->Metallum:2,Aer:1,Permutatio:1,Vinculum:1",
-                                "minecraft:waxed_oxidized_copper_trapdoor->Metallum:2,Vinculum:2,Permutatio:1",
-                                "minecraft:waxed_oxidized_cut_copper->Metallum:3,Fabrico:1,Permutatio:1,Vinculum:1",
-                                "minecraft:waxed_oxidized_cut_copper_slab->Metallum:2,Fabrico:1,Permutatio:1,Vinculum:1",
-                                "minecraft:waxed_oxidized_cut_copper_stairs->Metallum:2,Fabrico:1,Permutatio:1,Vinculum:1",
-                                "minecraft:waxed_weathered_chiseled_copper->Metallum:2,Fabrico:1,Permutatio:1,Vinculum:1",
-                                "minecraft:waxed_weathered_copper->Metallum:3,Permutatio:1,Vinculum:1",
-                                "minecraft:waxed_weathered_copper_bulb->Metallum:2,Lux:2,Permutatio:1,Vinculum:1",
-                                "minecraft:waxed_weathered_copper_door->Metallum:3,Vinculum:2,Permutatio:1",
-                                "minecraft:waxed_weathered_copper_grate->Metallum:2,Aer:1,Permutatio:1,Vinculum:1",
-                                "minecraft:waxed_weathered_copper_trapdoor->Metallum:2,Vinculum:2,Permutatio:1",
-                                "minecraft:waxed_weathered_cut_copper->Metallum:3,Fabrico:1,Permutatio:1,Vinculum:1",
-                                "minecraft:waxed_weathered_cut_copper_slab->Metallum:2,Fabrico:1,Permutatio:1,Vinculum:1",
-                                "minecraft:waxed_weathered_cut_copper_stairs->Metallum:2,Fabrico:1,Permutatio:1,Vinculum:1",
-                                "minecraft:wayfinder_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:weathered_chiseled_copper->Metallum:2,Fabrico:1,Permutatio:1",
-                                "minecraft:weathered_copper->Metallum:3,Permutatio:1",
-                                "minecraft:weathered_copper_bulb->Metallum:2,Lux:2,Permutatio:1",
-                                "minecraft:weathered_copper_door->Metallum:3,Vinculum:1,Permutatio:1",
-                                "minecraft:weathered_copper_grate->Metallum:2,Aer:1,Permutatio:1",
-                                "minecraft:weathered_copper_trapdoor->Metallum:2,Vinculum:1,Permutatio:1",
-                                "minecraft:weathered_cut_copper->Metallum:3,Fabrico:1,Permutatio:1",
-                                "minecraft:weathered_cut_copper_slab->Metallum:2,Fabrico:1,Permutatio:1",
-                                "minecraft:weathered_cut_copper_stairs->Metallum:2,Fabrico:1,Permutatio:1",
-                                "minecraft:weeping_vines->Herba:1,Infernum:1",
-                                "minecraft:wet_sponge->Aqua:2,Vacuos:1",
-                                "minecraft:wheat->Herba:1,Victus:1",
-                                "minecraft:white_banner->Herba:1,Sensus:2",
-                                "minecraft:white_bed->Herba:2,Victus:1",
-                                "minecraft:white_bundle->Herba:1,Vacuos:2",
-                                "minecraft:white_candle->Herba:1,Lux:1",
-                                "minecraft:white_carpet->Herba:1",
-                                "minecraft:white_concrete->Terra:2",
-                                "minecraft:white_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:white_dye->Sensus:1",
-                                "minecraft:white_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:white_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:white_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:white_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:white_terracotta->Terra:2,Sensus:1",
-                                "minecraft:white_tulip->Herba:1,Sensus:1",
-                                "minecraft:white_wool->Herba:1,Bestia:1",
-                                "minecraft:wild_armor_trim_smithing_template->Metallum:2,Fabrico:2,Cognitio:1",
-                                "minecraft:wind_charge->Aer:2,Potentia:1",
-                                "minecraft:witch_spawn_egg->Humanus:1,Praecantatio:1,Victus:1",
-                                "minecraft:wither_rose->Herba:1,Mortuus:2",
-                                "minecraft:wither_skeleton_skull->Exanimis:2,Spiritus:1,Infernum:1",
-                                "minecraft:wither_skeleton_spawn_egg->Exanimis:1,Infernum:1,Victus:1",
-                                "minecraft:wither_spawn_egg->Exanimis:2,Spiritus:2,Victus:1",
-                                "minecraft:wolf_armor->Bestia:2,Vinculum:1",
-                                "minecraft:wolf_spawn_egg->Bestia:1,Victus:1",
-                                "minecraft:wooden_axe->Herba:1,Instrumentum:2",
-                                "minecraft:wooden_hoe->Herba:1,Instrumentum:2",
-                                "minecraft:wooden_pickaxe->Herba:1,Instrumentum:2",
-                                "minecraft:wooden_shovel->Herba:1,Instrumentum:2",
-                                "minecraft:wooden_sword->Herba:1,Instrumentum:2",
-                                "minecraft:writable_book->Herba:1,Cognitio:1,Sensus:1",
-                                "minecraft:written_book->Herba:1,Cognitio:2,Sensus:1",
-                                "minecraft:yellow_banner->Herba:1,Sensus:2",
-                                "minecraft:yellow_bed->Herba:2,Victus:1",
-                                "minecraft:yellow_bundle->Herba:1,Vacuos:2",
-                                "minecraft:yellow_candle->Herba:1,Lux:1",
-                                "minecraft:yellow_carpet->Herba:1",
-                                "minecraft:yellow_concrete->Terra:2",
-                                "minecraft:yellow_concrete_powder->Terra:1,Perditio:1",
-                                "minecraft:yellow_dye->Sensus:1",
-                                "minecraft:yellow_glazed_terracotta->Terra:1,Sensus:1,Ignis:1",
-                                "minecraft:yellow_shulker_box->Alienis:2,Vacuos:2,Sensus:1",
-                                "minecraft:yellow_stained_glass->Vitreus:1,Sensus:1",
-                                "minecraft:yellow_stained_glass_pane->Vitreus:1,Sensus:1",
-                                "minecraft:yellow_terracotta->Terra:2,Sensus:1",
-                                "minecraft:yellow_wool->Herba:1,Bestia:1",
-                                "minecraft:zoglin_spawn_egg->Bestia:1,Infernum:1,Victus:1",
-                                "minecraft:zombie_head->Exanimis:2,Spiritus:1",
-                                "minecraft:zombie_horse_spawn_egg->Bestia:1,Exanimis:1,Victus:1",
-                                "minecraft:zombie_spawn_egg->Exanimis:1,Victus:1",
-                                "minecraft:zombie_villager_spawn_egg->Exanimis:1,Humanus:1,Victus:1",
-                                "minecraft:zombified_piglin_spawn_egg->Exanimis:1,Bestia:1,Infernum:1"
-                        ),
-                        () -> "minecraft:example_item->aspect1:1,aspect2:1", // Supplier for new elements
-                        entry -> entry instanceof String && ((String) entry).contains("->") // Validator
-                );
-
-
         BUILDER.comment("Warding Lantern Settings");
 
         // Initialize Warding Lantern Configuration
@@ -1677,6 +198,23 @@ public final class Config {
                         obj -> obj instanceof List<?> list &&
                                 list.stream().allMatch(item -> item instanceof String));
 
+        BUILDER.comment("Pedestal Crafting Settings");
+
+        ENABLE_PEDESTAL_CRAFTING = BUILDER
+                .comment("Enable pedestal crafting system")
+                .define("enablePedestalCrafting", true);
+
+        PEDESTAL_SEARCH_RADIUS = BUILDER
+                .comment("Search radius for pedestal crafting (in blocks)")
+                .defineInRange("pedestalSearchRadius", 10, 1, 20);
+
+        PEDESTAL_RECIPES = BUILDER
+                .comment("Pedestal recipes in format: name=center_item|input1,input2,input3->result_item:count")
+                .define("pedestalRecipes",
+                        DEFAULT_PEDESTAL_RECIPES,
+                        obj -> obj instanceof List<?> list &&
+                                list.stream().allMatch(Config::validatePedestalRecipe));
+
         WAND_CATALYST_MAPPINGS = BUILDER
                 .comment("List of block-to-item conversion mappings for the wand in format: blockid->itemid:count")
                 .define("wandCatalysts",
@@ -1697,6 +235,90 @@ public final class Config {
         throw new UnsupportedOperationException("Utility class should not be instantiated");
     }
 
+    private static boolean validatePedestalRecipe(final Object obj) {
+        if (!(obj instanceof String recipe)) {
+            return false;
+        }
+
+        try {
+            PedestalRecipeData parsedRecipe = parsePedestalRecipe(recipe);
+            return validatePedestalRecipeItems(parsedRecipe);
+        } catch (Exception e) {
+            LOGGER.error("Error validating pedestal recipe: {}", obj, e);
+            return false;
+        }
+    }
+
+    private static PedestalRecipeData parsePedestalRecipe(String recipe) {
+        // Find the first equals sign to separate name from recipe
+        int firstEquals = recipe.indexOf('=');
+        if (firstEquals == -1) {
+            throw new IllegalArgumentException("Invalid recipe format - missing name separator");
+        }
+
+        String name = recipe.substring(0, firstEquals).trim();
+        String recipePart = recipe.substring(firstEquals + 1);
+
+        String[] parts = recipePart.split("\\|");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("Invalid recipe format - missing center item separator");
+        }
+
+        String centerItem = parts[0].trim();
+        String remainder = parts[1];
+
+        String[] arrowParts = remainder.split(MAPPING_SEPARATOR);
+        if (arrowParts.length != 2) {
+            throw new IllegalArgumentException("Invalid recipe format - missing arrow separator");
+        }
+
+        String[] inputItems = arrowParts[0].trim().split(",");
+        for (int i = 0; i < inputItems.length; i++) {
+            inputItems[i] = inputItems[i].trim();
+        }
+
+        String resultPart = arrowParts[1].trim();
+        int lastColon = resultPart.lastIndexOf(':');
+        if (lastColon == -1) {
+            throw new IllegalArgumentException("Invalid result format");
+        }
+
+        String resultItem = resultPart.substring(0, lastColon);
+        int resultCount = Integer.parseInt(resultPart.substring(lastColon + 1).trim());
+
+        if (resultCount <= 0) {
+            throw new IllegalArgumentException("Invalid result count");
+        }
+
+        return new PedestalRecipeData(name, centerItem, inputItems, resultItem, resultCount);
+    }
+
+    private static boolean validatePedestalRecipeItems(PedestalRecipeData recipe) {
+        // Validate center item
+        ResourceLocation centerLoc = ResourceLocation.tryParse(recipe.centerItem());
+        if (centerLoc == null || !BuiltInRegistries.ITEM.containsKey(centerLoc)) {
+            LOGGER.error("Invalid center item ID: {}", recipe.centerItem());
+            return false;
+        }
+
+        // Validate input items
+        for (String inputItem : recipe.inputItems()) {
+            ResourceLocation inputLoc = ResourceLocation.tryParse(inputItem);
+            if (inputLoc == null || !BuiltInRegistries.ITEM.containsKey(inputLoc)) {
+                LOGGER.error("Invalid input item ID: {}", inputItem);
+                return false;
+            }
+        }
+
+        // Validate result item
+        ResourceLocation resultLoc = ResourceLocation.tryParse(recipe.resultItem());
+        if (resultLoc == null || !BuiltInRegistries.ITEM.containsKey(resultLoc)) {
+            LOGGER.error("Invalid result item ID: {}", recipe.resultItem());
+            return false;
+        }
+
+        return true;
+    }
 
     private static boolean validateCatalystMapping(final Object obj) {
         if (!(obj instanceof String mapping)) {
@@ -1756,6 +378,7 @@ public final class Config {
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event) {
         loadWandCatalysts();
+        loadPedestalRecipes();
     }
 
     private static void loadWandCatalysts() {
@@ -1766,6 +389,19 @@ public final class Config {
                 addWandCatalyst(parsedMapping);
             } catch (Exception e) {
                 LOGGER.error("Failed to load catalyst mapping: {}", mapping, e);
+            }
+        }
+    }
+
+    private static void loadPedestalRecipes() {
+        pedestalRecipes.clear();
+        for (String recipe : PEDESTAL_RECIPES.get()) {
+            try {
+                PedestalRecipeData parsedRecipe = parsePedestalRecipe(recipe);
+                pedestalRecipes.put(parsedRecipe.name(), parsedRecipe);
+                LOGGER.info("Loaded pedestal recipe: {}", parsedRecipe.name());
+            } catch (Exception e) {
+                LOGGER.error("Failed to load pedestal recipe: {}", recipe, e);
             }
         }
     }
@@ -1782,10 +418,101 @@ public final class Config {
         }
     }
 
+    // Add this debug method to your Config.java class
+
+    public static void debugConfigForJEI() {
+        Goe.LOGGER.info("=== CONFIG DEBUG FOR JEI ===");
+
+        // Debug pedestal recipes
+        Map<String, PedestalRecipeData> pedestalRecipes = getPedestalRecipes();
+        Goe.LOGGER.info("Pedestal recipes count: {}", pedestalRecipes.size());
+
+        if (pedestalRecipes.isEmpty()) {
+            Goe.LOGGER.warn("PEDESTAL RECIPES ARE EMPTY!");
+
+            // Check if the config value exists
+            List<? extends String> configValues = PEDESTAL_RECIPES.get();
+            Goe.LOGGER.info("Raw config pedestal recipes count: {}", configValues.size());
+
+            for (String recipe : configValues) {
+                Goe.LOGGER.info("Raw recipe: {}", recipe);
+            }
+        } else {
+            for (Map.Entry<String, PedestalRecipeData> entry : pedestalRecipes.entrySet()) {
+                Goe.LOGGER.info("Pedestal Recipe: {} = {}", entry.getKey(), entry.getValue());
+            }
+        }
+
+        // Debug wand catalysts
+        Map<Block, ItemStack> wandCatalysts = getWandCatalysts();
+        Goe.LOGGER.info("Wand catalysts count: {}", wandCatalysts.size());
+
+        if (wandCatalysts.isEmpty()) {
+            Goe.LOGGER.warn("WAND CATALYSTS ARE EMPTY!");
+
+            // Check if the config value exists
+            List<? extends String> configValues = WAND_CATALYST_MAPPINGS.get();
+            Goe.LOGGER.info("Raw config wand catalyst mappings count: {}", configValues.size());
+
+            for (String mapping : configValues) {
+                Goe.LOGGER.info("Raw mapping: {}", mapping);
+            }
+        } else {
+            for (Map.Entry<Block, ItemStack> entry : wandCatalysts.entrySet()) {
+                Goe.LOGGER.info("Wand Catalyst: {} -> {}",
+                        entry.getKey().getDescriptionId(), entry.getValue());
+            }
+        }
+
+        Goe.LOGGER.info("=== CONFIG DEBUG END ===");
+    }
+
     public static Map<Block, ItemStack> getWandCatalysts() {
         return Collections.unmodifiableMap(wandCatalysts);
     }
 
+    public static Map<String, PedestalRecipeData> getPedestalRecipes() {
+        return Collections.unmodifiableMap(pedestalRecipes);
+    }
+
+    public static boolean isPedestalCraftingEnabled() {
+        return ENABLE_PEDESTAL_CRAFTING.get();
+    }
+
+    public static int getPedestalSearchRadius() {
+        return PEDESTAL_SEARCH_RADIUS.get();
+    }
+
     private record CatalystMapping(String blockId, String itemId, int count) {
+    }
+
+    public record PedestalRecipeData(String name, String centerItem, String[] inputItems, String resultItem, int resultCount) {
+
+        public ItemStack getCenterItemStack() {
+            ResourceLocation loc = ResourceLocation.tryParse(centerItem);
+            if (loc != null && BuiltInRegistries.ITEM.containsKey(loc)) {
+                return new ItemStack(BuiltInRegistries.ITEM.getValue(loc));
+            }
+            return ItemStack.EMPTY;
+        }
+
+        public List<Ingredient> getInputIngredients() {
+            List<Ingredient> ingredients = new ArrayList<>();
+            for (String itemId : inputItems) {
+                ResourceLocation loc = ResourceLocation.tryParse(itemId);
+                if (loc != null && BuiltInRegistries.ITEM.containsKey(loc)) {
+                    ingredients.add(Ingredient.of(BuiltInRegistries.ITEM.getValue(loc)));
+                }
+            }
+            return ingredients;
+        }
+
+        public ItemStack getResultItemStack() {
+            ResourceLocation loc = ResourceLocation.tryParse(resultItem);
+            if (loc != null && BuiltInRegistries.ITEM.containsKey(loc)) {
+                return new ItemStack(BuiltInRegistries.ITEM.getValue(loc), resultCount);
+            }
+            return ItemStack.EMPTY;
+        }
     }
 }

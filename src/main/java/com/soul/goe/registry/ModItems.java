@@ -1,7 +1,6 @@
 package com.soul.goe.registry;
 
 import com.soul.goe.Goe;
-import com.soul.goe.items.custom.ElandorsSpyGlass;
 import com.soul.goe.items.custom.SalisMundus;
 import com.soul.goe.items.custom.Wand;
 import net.minecraft.world.item.BlockItem;
@@ -21,6 +20,9 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> EMPOWERED_LANTERN =
             ITEMS.registerSimpleBlockItem("empowered_lantern", ModBlocks.EMPOWERED_LANTERN);
 
+    public static final DeferredItem<BlockItem> PEDESTAL =
+            ITEMS.registerSimpleBlockItem("pedestal", ModBlocks.PEDESTAL);
+
     public static final DeferredItem<BlockItem> WARDING_LANTERN =
             ITEMS.registerSimpleBlockItem("warding_lantern", ModBlocks.WARDING_LANTERN);
     // Items
@@ -38,9 +40,6 @@ public final class ModItems {
 
     public static final DeferredItem<Item> ELANDORS_CHARM = ITEMS.registerItem("elandors_charm",
             props -> new Item(props.stacksTo(1)));
-
-    public static final DeferredItem<ElandorsSpyGlass> ELANDORS_SPY_GLASS = ITEMS.registerItem("elandors_spy_glass",
-            props -> new ElandorsSpyGlass(props.stacksTo(1)));
 
 
     public static void register(IEventBus modEventBus) {
