@@ -39,6 +39,20 @@ public final class ModCreativeTabs {
                     output.accept(ModBlocks.EMPOWERED_LANTERN.get());
                     output.accept(ModBlocks.WARDING_LANTERN.get());
                     output.accept(ModBlocks.PEDESTAL.get());
+
+                    // Spells
+                    output.accept(ModItems.FIREBOLT_SPELL.get());
+                    output.accept(ModItems.FIREBALL_SPELL.get());
+                    output.accept(ModItems.RAY_OF_FROST_SPELL.get());
+                    output.accept(ModItems.CONE_OF_COLD_SPELL.get());
+                    output.accept(ModItems.LIGHTNING_BOLT_SPELL.get());
+                    output.accept(ModItems.SHOCKING_GRASP_SPELL.get());
+                    output.accept(ModItems.LEVITATE_SPELL.get());
+                    output.accept(ModItems.FLY_SPELL.get());
+                    output.accept(ModItems.MAGIC_MISSILE_SPELL.get());
+                    output.accept(ModItems.LUNGE_SPELL.get());
+                    output.accept(ModItems.FROST_SPRITE_SPELL.get());
+
                 })
                 .build();
     }

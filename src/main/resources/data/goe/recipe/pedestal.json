@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "SSS",
+    "IHI",
+    "SSS"
+  ],
+  "key": {
+    "S": "minecraft:stone_slab",
+    "H": "minecraft:hopper",
+    "I": "minecraft:iron_bars"
+  },
+  "result": {
+    "id": "goe:pedestal",
+    "count": 1
+  }
+}

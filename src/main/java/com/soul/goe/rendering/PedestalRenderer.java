@@ -1,4 +1,4 @@
-package com.soul.goe.blocks.renderer;
+package com.soul.goe.rendering;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;

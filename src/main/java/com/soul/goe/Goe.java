@@ -3,6 +3,8 @@ package com.soul.goe;
 import com.soul.goe.datagen.ModModelProvider;
 import com.soul.goe.items.custom.Wand;
 import com.soul.goe.registry.*;
+import com.soul.goe.rendering.EmptyEntityRenderer;
+import com.soul.goe.spells.SpellInit;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -10,11 +12,12 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
-import com.soul.goe.blocks.renderer.PedestalRenderer;
+import com.soul.goe.rendering.PedestalRenderer;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.data.event.GatherDataEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,6 +35,8 @@ public class Goe {
         ModItems.register(modEventBus);
         ModCreativeTabs.register(modEventBus);
         ModBlockEntities.register(modEventBus);
+        ModEntityRegistry.ENTITY_TYPES.register(modEventBus);
+
 
         modEventBus.addListener(this::onCommonSetup);
 
@@ -40,7 +45,10 @@ public class Goe {
 
     private void onCommonSetup(final FMLCommonSetupEvent event) {
         LOGGER.info("Initializing common setup...");
-        event.enqueueWork(Wand::registerCatalysts);
+        event.enqueueWork(() -> {
+            Wand.registerCatalysts();
+            SpellInit.registerSpells();
+        });
         LOGGER.info("JEI compatibility layer initialized");
     }
 
@@ -55,6 +63,14 @@ public class Goe {
         public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
             LOGGER.info("Registering block entity renderers...");
             event.registerBlockEntityRenderer(ModBlockEntities.PEDESTAL.get(), PedestalRenderer::new);
+            event.registerEntityRenderer(ModEntityRegistry.FIREBOLT_PROJECTILE.get(), EmptyEntityRenderer::new);
+            event.registerEntityRenderer(ModEntityRegistry.FIREBALL_PROJECTILE.get(), EmptyEntityRenderer::new);
+            event.registerEntityRenderer(ModEntityRegistry.RAY_OF_FROST_PROJECTILE.get(), EmptyEntityRenderer::new);
+            event.registerEntityRenderer(ModEntityRegistry.CONE_OF_COLD_PROJECTILE.get(), EmptyEntityRenderer::new);
+            event.registerEntityRenderer(ModEntityRegistry.SHOCKING_GRASP_PROJECTILE.get(), EmptyEntityRenderer::new);
+            event.registerEntityRenderer(ModEntityRegistry.LIGHTNING_BOLT_PROJECTILE.get(), EmptyEntityRenderer::new);
+            event.registerEntityRenderer(ModEntityRegistry.MAGIC_MISSILE_PROJECTILE.get(), EmptyEntityRenderer::new);
+            event.registerEntityRenderer(ModEntityRegistry.FROST_SPRITE_PROJECTILE.get(), EmptyEntityRenderer::new);
         }
     }
 

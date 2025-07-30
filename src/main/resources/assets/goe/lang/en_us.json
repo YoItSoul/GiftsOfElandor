@@ -7,11 +7,23 @@
   "item.goe.elandors_wand": "Elandor's Wand",
   "item.goe.elandors_charm": "Elandor's Charm",
 
+  "item.goe.firebolt_spell": "Firebolt Spell",
+  "item.goe.fireball_spell": "Fireball Spell",
+  "item.goe.ray_of_frost_spell": "Ray of Frost Spell",
+  "item.goe.cone_of_cold_spell": "Cone of Cold Spell",
+  "item.goe.shocking_grasp_spell": "Shocking Grasp Spell",
+  "item.goe.lightning_bolt_spell": "Lightning Bolt Spell",
+  "item.goe.levitate_spell": "Levitate Spell",
+  "item.goe.fly_spell": "Fly Spell",
+  "item.goe.magic_missile_spell": "Magic Missile Spell",
+  "item.goe.lunge_spell": "Lunge Spell",
+  "item.goe.frost_sprite_spell": "Frost Sprite Spell",
+
+
   "block.goe.flare": "Flare",
   "block.goe.empowered_lantern": "Empowered Lantern",
   "block.goe.warding_lantern": "Warding Lantern",
   "block.goe.pedestal": "Pedestal",
-
 
   "jei.goe.category.pedestal_crafting": "Pedestal Crafting",
   "jei.goe.category.wand_catalyst": "Wand Catalyst",
@@ -29,5 +41,4 @@
   "jei.goe.tooltip.requires_wand": "Requires: Any Wand",
   "jei.goe.tooltip.search_radius": "Search Radius: %d blocks",
   "jei.goe.tooltip.ingredient_count": "%d ingredients required"
-
 }

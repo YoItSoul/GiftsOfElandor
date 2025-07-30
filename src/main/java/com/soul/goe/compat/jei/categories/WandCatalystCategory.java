@@ -51,10 +51,10 @@ public class WandCatalystCategory implements IRecipeCategory<WandCatalystRecipe>
     @Override
     public void setRecipe(IRecipeLayoutBuilder builder, WandCatalystRecipe recipe, IFocusGroup focuses) {
         // Clean, evenly spaced layout
-        builder.addSlot(RecipeIngredientRole.INPUT, 10, 19)
+        builder.addSlot(RecipeIngredientRole.INPUT, 40, 19)
                 .add(new ItemStack(recipe.getInputBlock()));
 
-        builder.addSlot(RecipeIngredientRole.INPUT, 40, 19)
+        builder.addSlot(RecipeIngredientRole.INPUT, 10, 19)
                 .add(new ItemStack(ModItems.AMETHYST_WAND.get()))
                 .add(new ItemStack(ModItems.EMPOWERED_AMETHYST_WAND.get()))
                 .add(new ItemStack(ModItems.ELANDORS_WAND.get()));
