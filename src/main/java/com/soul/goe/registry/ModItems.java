@@ -27,17 +27,20 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> WARDING_LANTERN =
             ITEMS.registerSimpleBlockItem("warding_lantern", ModBlocks.WARDING_LANTERN);
 
+    public static final DeferredItem<BlockItem> SPELL_BINDER =
+            ITEMS.registerSimpleBlockItem("spell_binder", ModBlocks.SPELL_BINDER);
+
     public static final DeferredItem<SalisMundus> SALIS_MUNDUS = ITEMS.registerItem("salis_mundus",
             props -> new SalisMundus(props.stacksTo(64)));
 
     public static final DeferredItem<Wand> AMETHYST_WAND = ITEMS.registerItem("amethyst_wand",
-            props -> new Wand(props.stacksTo(1).durability(100), false));
+            props -> new Wand(props.stacksTo(1).durability(100).repairable(SALIS_MUNDUS.get()), false,1));
 
     public static final DeferredItem<Wand> EMPOWERED_AMETHYST_WAND = ITEMS.registerItem("empowered_amethyst_wand",
-            props -> new Wand(props.stacksTo(1).durability(500), true));
+            props -> new Wand(props.stacksTo(1).durability(500), true,4));
 
     public static final DeferredItem<Wand> ELANDORS_WAND = ITEMS.registerItem("elandors_wand",
-            props -> new Wand(props.stacksTo(1), true));
+            props -> new Wand(props.stacksTo(1), true,9));
 
     public static final DeferredItem<Item> ELANDORS_CHARM = ITEMS.registerItem("elandors_charm",
             props -> new Item(props.stacksTo(1)));
@@ -74,6 +77,15 @@ public final class ModItems {
 
     public static final DeferredItem<Spell> FROST_SPRITE_SPELL = ITEMS.registerItem("frost_sprite_spell",
             props -> new Spell(props.stacksTo(1), "frost_sprite", 10, true));
+
+    public static final DeferredItem<Spell> ARC_SPRITE_SPELL = ITEMS.registerItem("arc_sprite_spell",
+            props -> new Spell(props.stacksTo(1), "arc_sprite", 10, true));
+
+    public static final DeferredItem<Spell> FLAME_SPRITE_SPELL = ITEMS.registerItem("flame_sprite_spell",
+            props -> new Spell(props.stacksTo(1), "flame_sprite", 10, true));
+
+    public static final DeferredItem<Spell> DRAGON_SPRITE_SPELL = ITEMS.registerItem("dragon_sprite_spell",
+            props -> new Spell(props.stacksTo(1), "dragon_sprite", 10, true));
 
 
     public static void register(IEventBus modEventBus) {

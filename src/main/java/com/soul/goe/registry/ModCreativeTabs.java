@@ -39,6 +39,7 @@ public final class ModCreativeTabs {
                     output.accept(ModBlocks.EMPOWERED_LANTERN.get());
                     output.accept(ModBlocks.WARDING_LANTERN.get());
                     output.accept(ModBlocks.PEDESTAL.get());
+                    output.accept(ModBlocks.SPELL_BINDER.get());
 
                     // Spells
                     output.accept(ModItems.FIREBOLT_SPELL.get());
@@ -52,6 +53,10 @@ public final class ModCreativeTabs {
                     output.accept(ModItems.MAGIC_MISSILE_SPELL.get());
                     output.accept(ModItems.LUNGE_SPELL.get());
                     output.accept(ModItems.FROST_SPRITE_SPELL.get());
+                    output.accept(ModItems.FLAME_SPRITE_SPELL.get());
+                    output.accept(ModItems.ARC_SPRITE_SPELL.get());
+                    output.accept(ModItems.DRAGON_SPRITE_SPELL.get());
+
 
                 })
                 .build();

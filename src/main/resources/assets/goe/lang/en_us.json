@@ -18,12 +18,18 @@
   "item.goe.magic_missile_spell": "Magic Missile Spell",
   "item.goe.lunge_spell": "Lunge Spell",
   "item.goe.frost_sprite_spell": "Frost Sprite Spell",
+  "item.goe.arc_sprite_spell": "Arc Sprite Spell",
+  "item.goe.flame_sprite_spell": "Flame Sprite Spell",
+  "item.goe.dragon_sprite_spell": "Dragon Sprite Spell",
+
 
 
   "block.goe.flare": "Flare",
   "block.goe.empowered_lantern": "Empowered Lantern",
   "block.goe.warding_lantern": "Warding Lantern",
   "block.goe.pedestal": "Pedestal",
+  "block.goe.spell_binder": "Spell Binder",
+
 
   "jei.goe.category.pedestal_crafting": "Pedestal Crafting",
   "jei.goe.category.wand_catalyst": "Wand Catalyst",

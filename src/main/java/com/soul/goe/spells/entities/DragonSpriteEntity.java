@@ -1,39 +1,38 @@
 package com.soul.goe.spells.entities;
 
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.tags.EntityTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 
-public class FrostSpriteEntity extends SpriteEntityBase {
-    private static final EntityDataAccessor<Float> DAMAGE = SynchedEntityData.defineId(FrostSpriteEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Integer> DURATION = SynchedEntityData.defineId(FrostSpriteEntity.class, EntityDataSerializers.INT);
-    private static final EntityDataAccessor<Integer> ATTACK_COOLDOWN = SynchedEntityData.defineId(FrostSpriteEntity.class, EntityDataSerializers.INT);
+public class DragonSpriteEntity extends Projectile {
+    private static final EntityDataAccessor<Float> DAMAGE = SynchedEntityData.defineId(DragonSpriteEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Integer> DURATION = SynchedEntityData.defineId(DragonSpriteEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> ATTACK_COOLDOWN = SynchedEntityData.defineId(DragonSpriteEntity.class, EntityDataSerializers.INT);
 
-    private static final float DEFAULT_DAMAGE = 1.5F;
-    private static final int DEFAULT_DURATION = 2400;
-    private static final int DEFAULT_ATTACK_COOLDOWN = 40;
-    private static final double ORBIT_RADIUS = 3.0;
-    private static final double ORBIT_SPEED = 0.1;
-    private static final double DETECTION_RADIUS = 12.0;
-    private static final double ATTACK_SPEED = .5;
-    private static final double RETURN_SPEED = .5;
-    private static final int PARTICLE_INTERVAL = 3;
+    private static final float DEFAULT_DAMAGE = 4.5F;
+    private static final int DEFAULT_DURATION = 7200;
+    private static final int DEFAULT_ATTACK_COOLDOWN = 20;
+    private static final double ORBIT_RADIUS = 3.5;
+    private static final double ORBIT_SPEED = 0.08;
+    private static final double DETECTION_RADIUS = 20;
+    private static final double ATTACK_SPEED = .45;
+    private static final double RETURN_SPEED = .45;
+    private static final int PARTICLE_INTERVAL = 1;
 
     private int lifeTicks = 0;
     private double orbitAngle = 0.0;
@@ -41,12 +40,19 @@ public class FrostSpriteEntity extends SpriteEntityBase {
     private SpriteState state = SpriteState.ORBITING;
     private Vec3 lastOwnerPos;
 
-    public FrostSpriteEntity(EntityType<? extends FrostSpriteEntity> entityType, Level level) {
+    private enum SpriteState {
+        ORBITING,
+        ATTACKING,
+        RETURNING
+    }
+
+    public DragonSpriteEntity(EntityType<? extends DragonSpriteEntity> entityType, Level level) {
         super(entityType, level);
     }
 
-    public FrostSpriteEntity(EntityType<? extends FrostSpriteEntity> entityType, Level level, LivingEntity owner) {
-        super(entityType, level, owner);
+    public DragonSpriteEntity(EntityType<? extends DragonSpriteEntity> entityType, Level level, LivingEntity owner) {
+        super(entityType, level);
+        setOwner(owner);
         setDamage(DEFAULT_DAMAGE);
         setDuration(DEFAULT_DURATION);
         setAttackCooldown(0);
@@ -61,44 +67,28 @@ public class FrostSpriteEntity extends SpriteEntityBase {
         builder.define(ATTACK_COOLDOWN, DEFAULT_ATTACK_COOLDOWN);
     }
 
-    @Override
     public void setDamage(float damage) {
         this.entityData.set(DAMAGE, damage);
     }
 
-    @Override
     public float getDamage() {
         return this.entityData.get(DAMAGE);
     }
 
-    @Override
     public void setDuration(int duration) {
         this.entityData.set(DURATION, duration);
     }
 
-    @Override
     public int getDuration() {
         return this.entityData.get(DURATION);
     }
 
-    @Override
     public void setAttackCooldown(int cooldown) {
         this.entityData.set(ATTACK_COOLDOWN, cooldown);
     }
 
-    @Override
     public int getAttackCooldown() {
         return this.entityData.get(ATTACK_COOLDOWN);
-    }
-
-    @Override
-    protected void setState(SpriteState newState) {
-        this.state = newState;
-    }
-
-    @Override
-    protected SpriteState getState() {
-        return this.state;
     }
 
     @Override
@@ -123,10 +113,6 @@ public class FrostSpriteEntity extends SpriteEntityBase {
 
         lastOwnerPos = owner.position();
 
-        if (shouldSeekFusion() && state != SpriteState.SEEKING_FUSION) {
-            state = SpriteState.SEEKING_FUSION;
-        }
-
         switch (state) {
             case ORBITING:
                 handleOrbitBehavior(owner);
@@ -136,9 +122,6 @@ public class FrostSpriteEntity extends SpriteEntityBase {
                 break;
             case RETURNING:
                 handleReturnBehavior(owner);
-                break;
-            case SEEKING_FUSION:
-                handleFusionSeeking(owner);
                 break;
         }
 
@@ -152,16 +135,16 @@ public class FrostSpriteEntity extends SpriteEntityBase {
         }
 
         double x = owner.getX() + Math.cos(orbitAngle) * ORBIT_RADIUS;
-        double y = owner.getY() + 1.5 + Math.sin(orbitAngle * 3) * 0.5;
+        double y = owner.getY() + 2.0 + Math.sin(orbitAngle * 2) * 0.6;
         double z = owner.getZ() + Math.sin(orbitAngle) * ORBIT_RADIUS;
 
         Vec3 targetPos = new Vec3(x, y, z);
         Vec3 direction = targetPos.subtract(position()).normalize();
-        setDeltaMovement(direction.scale(0.3));
+        setDeltaMovement(direction.scale(0.25));
 
         setPos(getX() + getDeltaMovement().x, getY() + getDeltaMovement().y, getZ() + getDeltaMovement().z);
 
-        if (getAttackCooldown() <= 0 && !shouldSeekFusion()) {
+        if (getAttackCooldown() <= 0) {
             LivingEntity nearbyEnemy = findNearbyEnemy(owner);
             if (nearbyEnemy != null) {
                 targetEntity = nearbyEnemy;
@@ -185,7 +168,7 @@ public class FrostSpriteEntity extends SpriteEntityBase {
         setPos(getX() + getDeltaMovement().x, getY() + getDeltaMovement().y, getZ() + getDeltaMovement().z);
 
         double distanceToTarget = distanceTo(targetEntity);
-        if (distanceToTarget < 2.5) {
+        if (distanceToTarget < 3.0) {
             attackTarget();
             targetEntity = null;
             state = SpriteState.RETURNING;
@@ -193,13 +176,13 @@ public class FrostSpriteEntity extends SpriteEntityBase {
     }
 
     private void handleReturnBehavior(LivingEntity owner) {
-        Vec3 ownerPos = new Vec3(owner.getX(), owner.getY() + 1.5, owner.getZ());
+        Vec3 ownerPos = new Vec3(owner.getX(), owner.getY() + 2.0, owner.getZ());
         Vec3 direction = ownerPos.subtract(position()).normalize();
         setDeltaMovement(direction.scale(RETURN_SPEED));
 
         setPos(getX() + getDeltaMovement().x, getY() + getDeltaMovement().y, getZ() + getDeltaMovement().z);
 
-        if (distanceTo(owner) < 2.0) {
+        if (distanceTo(owner) < 2.5) {
             state = SpriteState.ORBITING;
         }
     }
@@ -231,27 +214,13 @@ public class FrostSpriteEntity extends SpriteEntityBase {
         LivingEntity owner = (LivingEntity) getOwner();
         DamageSource damageSource = this.damageSources().thrown(this, owner);
 
-        if (targetEntity.getType().is(EntityTypeTags.UNDEAD)) {
-            applySlowEffect(targetEntity);
-            level().playSound(null, getX(), getY(), getZ(),
-                    SoundEvents.SNOW_HIT, SoundSource.NEUTRAL,
-                    0.5F, 1.8F + (random.nextFloat() - 0.5F) * 0.3F);
+        float damage = getDamage();
 
-            if (level() instanceof ServerLevel serverLevel) {
-                serverLevel.sendParticles(ParticleTypes.SNOWFLAKE,
-                        targetEntity.getX(), targetEntity.getY() + 0.5, targetEntity.getZ(), 15,
-                        0.5, 0.5, 0.5, 0.1);
-
-                serverLevel.sendParticles(ParticleTypes.ITEM_SNOWBALL,
-                        targetEntity.getX(), targetEntity.getY() + 0.5, targetEntity.getZ(), 5,
-                        0.3, 0.3, 0.3, 0.05);
-            }
-
-            setAttackCooldown(DEFAULT_ATTACK_COOLDOWN);
-            return;
+        boolean isCritical = random.nextFloat() < 0.05f;
+        if (isCritical) {
+            damage *= 2;
         }
 
-        float damage = getDamage();
         float healthBefore = targetEntity.getHealth();
         targetEntity.hurt(damageSource, damage);
         float healthAfter = targetEntity.getHealth();
@@ -259,27 +228,56 @@ public class FrostSpriteEntity extends SpriteEntityBase {
         boolean damaged = healthAfter < healthBefore;
 
         if (damaged && targetEntity.isAlive()) {
-            applySlowEffect(targetEntity);
+            applyAllDebuffs(targetEntity);
         }
 
         level().playSound(null, getX(), getY(), getZ(),
-                SoundEvents.SNOW_HIT, SoundSource.NEUTRAL,
-                0.5F, 1.8F + (random.nextFloat() - 0.5F) * 0.3F);
+                SoundEvents.ENDER_DRAGON_GROWL, SoundSource.NEUTRAL,
+                0.3F, 1.8F + (random.nextFloat() - 0.5F) * 0.4F);
+
+        level().playSound(null, getX(), getY(), getZ(),
+                SoundEvents.FIRE_EXTINGUISH, SoundSource.NEUTRAL,
+                0.5F, 0.8F + (random.nextFloat() - 0.5F) * 0.3F);
 
         if (level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.SNOWFLAKE,
+            serverLevel.sendParticles(ParticleTypes.DRAGON_BREATH,
+                    targetEntity.getX(), targetEntity.getY() + 0.5, targetEntity.getZ(), 25,
+                    0.8, 0.8, 0.8, 0.1);
+
+            serverLevel.sendParticles(ParticleTypes.FLAME,
+                    targetEntity.getX(), targetEntity.getY() + 0.5, targetEntity.getZ(), 10,
+                    0.5, 0.5, 0.5, 0.08);
+
+            serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK,
                     targetEntity.getX(), targetEntity.getY() + 0.5, targetEntity.getZ(), 15,
                     0.5, 0.5, 0.5, 0.1);
 
-            serverLevel.sendParticles(ParticleTypes.ITEM_SNOWBALL,
-                    targetEntity.getX(), targetEntity.getY() + 0.5, targetEntity.getZ(), 5,
+            serverLevel.sendParticles(ParticleTypes.SNOWFLAKE,
+                    targetEntity.getX(), targetEntity.getY() + 0.5, targetEntity.getZ(), 10,
+                    0.5, 0.5, 0.5, 0.1);
+
+            serverLevel.sendParticles(ParticleTypes.END_ROD,
+                    targetEntity.getX(), targetEntity.getY() + 0.5, targetEntity.getZ(), 8,
                     0.3, 0.3, 0.3, 0.05);
         }
 
         setAttackCooldown(DEFAULT_ATTACK_COOLDOWN);
     }
 
-    private void applySlowEffect(LivingEntity entity) {
+    private void applyAllDebuffs(LivingEntity entity) {
+        entity.setRemainingFireTicks(120);
+
+        entity.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                net.minecraft.world.effect.MobEffects.WEAKNESS,
+                120,
+                1
+        ));
+
+        applyFrostSlowEffect(entity);
+        applyShockEffect(entity);
+    }
+
+    private void applyFrostSlowEffect(LivingEntity entity) {
         Vec3 currentMotion = entity.getDeltaMovement();
         entity.setDeltaMovement(currentMotion.scale(0.5));
 
@@ -290,26 +288,46 @@ public class FrostSpriteEntity extends SpriteEntityBase {
         ));
     }
 
+    private void applyShockEffect(LivingEntity entity) {
+        Vec3 currentMotion = entity.getDeltaMovement();
+        entity.setDeltaMovement(currentMotion.scale(0.3));
+    }
+
     private void spawnParticles() {
         if (lifeTicks % PARTICLE_INTERVAL == 0) {
             if (level() instanceof ServerLevel serverLevel) {
-                SimpleParticleType particleType = (state == SpriteState.SEEKING_FUSION) ?
-                        ParticleTypes.ENCHANT : ParticleTypes.SNOWFLAKE;
+                serverLevel.sendParticles(ParticleTypes.DRAGON_BREATH,
+                        getX(), getY(), getZ(), 2,
+                        0.15, 0.15, 0.15, 0.02);
 
-                serverLevel.sendParticles(particleType,
-                        getX(), getY(), getZ(), 1,
-                        0.1, 0.1, 0.1, 0.02);
+                if (random.nextFloat() < 0.5f) {
+                    serverLevel.sendParticles(ParticleTypes.END_ROD,
+                            getX(), getY(), getZ(), 1,
+                            0.08, 0.08, 0.08, 0.01);
+                }
 
                 if (random.nextFloat() < 0.3f) {
-                    serverLevel.sendParticles(ParticleTypes.END_ROD,
+                    serverLevel.sendParticles(ParticleTypes.SMALL_FLAME,
+                            getX(), getY(), getZ(), 1,
+                            0.05, 0.05, 0.05, 0.01);
+                }
+
+                if (random.nextFloat() < 0.2f) {
+                    serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK,
+                            getX(), getY(), getZ(), 1,
+                            0.05, 0.05, 0.05, 0.01);
+                }
+
+                if (random.nextFloat() < 0.2f) {
+                    serverLevel.sendParticles(ParticleTypes.SNOWFLAKE,
                             getX(), getY(), getZ(), 1,
                             0.05, 0.05, 0.05, 0.01);
                 }
             } else {
-                level().addParticle(ParticleTypes.SNOWFLAKE,
-                        getX() + (random.nextGaussian() * 0.1),
-                        getY() + (random.nextGaussian() * 0.1),
-                        getZ() + (random.nextGaussian() * 0.1),
+                level().addParticle(ParticleTypes.DRAGON_BREATH,
+                        getX() + (random.nextGaussian() * 0.15),
+                        getY() + (random.nextGaussian() * 0.15),
+                        getZ() + (random.nextGaussian() * 0.15),
                         0, 0, 0);
             }
         }
@@ -317,17 +335,33 @@ public class FrostSpriteEntity extends SpriteEntityBase {
 
     private void despawnWithEffect() {
         level().playSound(null, getX(), getY(), getZ(),
-                SoundEvents.SNOW_PLACE, SoundSource.NEUTRAL,
-                0.8F, 1.5F + (random.nextFloat() - 0.5F) * 0.2F);
+                SoundEvents.ENDER_DRAGON_DEATH, SoundSource.NEUTRAL,
+                0.4F, 2.0F + (random.nextFloat() - 0.5F) * 0.3F);
 
         if (level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.SNOWFLAKE,
-                    getX(), getY(), getZ(), 20,
-                    0.5, 0.5, 0.5, 0.1);
+            serverLevel.sendParticles(ParticleTypes.DRAGON_BREATH,
+                    getX(), getY(), getZ(), 40,
+                    0.8, 0.8, 0.8, 0.15);
 
             serverLevel.sendParticles(ParticleTypes.END_ROD,
-                    getX(), getY(), getZ(), 5,
-                    0.2, 0.2, 0.2, 0.05);
+                    getX(), getY(), getZ(), 12,
+                    0.4, 0.4, 0.4, 0.08);
+
+            serverLevel.sendParticles(ParticleTypes.PORTAL,
+                    getX(), getY(), getZ(), 8,
+                    0.3, 0.3, 0.3, 0.1);
+
+            serverLevel.sendParticles(ParticleTypes.FLAME,
+                    getX(), getY(), getZ(), 15,
+                    0.4, 0.4, 0.4, 0.1);
+
+            serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK,
+                    getX(), getY(), getZ(), 15,
+                    0.4, 0.4, 0.4, 0.1);
+
+            serverLevel.sendParticles(ParticleTypes.SNOWFLAKE,
+                    getX(), getY(), getZ(), 15,
+                    0.4, 0.4, 0.4, 0.1);
         }
 
         discard();

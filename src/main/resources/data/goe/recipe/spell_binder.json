@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " S ",
+    "JHJ",
+    "JVJ"
+  ],
+  "key": {
+    "S": "goe:salis_mundus",
+    "H": "goe:pedestal",
+    "V": "minecraft:stone_slab",
+    "J": "minecraft:iron_bars"
+  },
+  "result": {
+    "id": "goe:spell_binder",
+    "count": 1
+  }
+}

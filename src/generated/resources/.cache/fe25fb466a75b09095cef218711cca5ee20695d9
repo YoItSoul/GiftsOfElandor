@@ -1,16 +1,20 @@
-// 1.21.4	2025-07-30T15:03:59.7487736	Model Definitions - goe
+// 1.21.4	2025-08-01T09:12:07.149138	Model Definitions - goe
 32f1d222c051509baf18da15b0145e62f6cfe6d5 assets/goe/blockstates/empowered_lantern.json
 32f1d222c051509baf18da15b0145e62f6cfe6d5 assets/goe/blockstates/flare.json
 32f1d222c051509baf18da15b0145e62f6cfe6d5 assets/goe/blockstates/pedestal.json
+32f1d222c051509baf18da15b0145e62f6cfe6d5 assets/goe/blockstates/spell_binder.json
 32f1d222c051509baf18da15b0145e62f6cfe6d5 assets/goe/blockstates/warding_lantern.json
 fbe5e0a02af3c4dd516eabd8316a45455e50f043 assets/goe/items/amethyst_wand.json
+2dee75753b07b910446491fb7f2fbfdc849f1f82 assets/goe/items/arc_sprite_spell.json
 66b3761f207975831d3f360f92aa94848fdbad0f assets/goe/items/cone_of_cold_spell.json
+cb709c3a08b8419aff6e94162949644622a84e88 assets/goe/items/dragon_sprite_spell.json
 8aabe8c61c4532c4cd84b25093617549d5489df4 assets/goe/items/elandors_charm.json
 27d07e20c5070a611267d3d09fddc6f120f19258 assets/goe/items/elandors_wand.json
 99b103ef20ca33a42cb28bbb3cef3cfdda0b63c7 assets/goe/items/empowered_amethyst_wand.json
 3e685b3fdf911f53bb7f54c39032229d65bf96c2 assets/goe/items/empowered_lantern.json
 e926fa06ef83fcc2ea929ae60c2f1adbed055519 assets/goe/items/fireball_spell.json
 6e1bcc1c642d0a7d4b94d0b939b6c08d7f763690 assets/goe/items/firebolt_spell.json
+d5aaa0ab8d1732c08040bbfdf40b0cfcfbc376e8 assets/goe/items/flame_sprite_spell.json
 848057a830eb59596ee9dc3c622917d0966c087b assets/goe/items/flare.json
 3bf1cc2169c476a98c2947b2019cbca2e3c71a54 assets/goe/items/fly_spell.json
 9e8f2b37c68f73dc00eef99aae166e86a9709061 assets/goe/items/frost_sprite_spell.json
@@ -22,14 +26,18 @@ de960048a7104ae2fa33b7473d3269594ccd5c18 assets/goe/items/pedestal.json
 861ab4b8d9517cf7e6aa2ebbd067558767391951 assets/goe/items/ray_of_frost_spell.json
 503cee250d9be706bf68206229a449da48467d93 assets/goe/items/salis_mundus.json
 e7e6639dcb6a3cbe50618cf207b8f31987c3894d assets/goe/items/shocking_grasp_spell.json
+4039415568b059ca60214116d79807ceafbcb4b3 assets/goe/items/spell_binder.json
 a6d290c69dc1e98ff11ce1935e68ca971673eb74 assets/goe/items/warding_lantern.json
 4a7b07c6fed20337a9b37218fcfa64de96e3bcc8 assets/goe/models/item/amethyst_wand.json
+bacc510ecd3c07cb31aa43b05a929c347ca365e5 assets/goe/models/item/arc_sprite_spell.json
 02d2127413aa291a2c0f551243e1621a8f8ad03e assets/goe/models/item/cone_of_cold_spell.json
+be6a0959a961a7dac70936849810d9d51eab4ef5 assets/goe/models/item/dragon_sprite_spell.json
 4ccf8c0660d0068d25cca6e310fe56ad0f188b3a assets/goe/models/item/elandors_charm.json
 b0989e7d7f1b9de03fa586193997550d37c9f261 assets/goe/models/item/elandors_wand.json
 2b5b4d6bf21e468ffb23977d44d2db9d9c13a170 assets/goe/models/item/empowered_amethyst_wand.json
 39b43fa91d1388e792ca842d485773ec613a7037 assets/goe/models/item/fireball_spell.json
 6a60df2436bf6ff10144eb362fbcfc4345d7055c assets/goe/models/item/firebolt_spell.json
+e7932328bb830c5ca395868f6f4617e919641860 assets/goe/models/item/flame_sprite_spell.json
 103d236ca8409dcb5b6431838b845fe1baeec2ab assets/goe/models/item/fly_spell.json
 2ed907e84ab48a3fec1665427d76f3407703db15 assets/goe/models/item/frost_sprite_spell.json
 c70668e75473ce205b4cf4e626c394680945863b assets/goe/models/item/levitate_spell.json

@@ -1,6 +1,7 @@
 package com.soul.goe.registry;
 
 import com.soul.goe.Goe;
+import com.soul.goe.blocks.entity.SpellBinderEntity;
 import com.soul.goe.spells.entities.FireballEntity;
 import com.soul.goe.spells.entities.FireboltEntity;
 import com.soul.goe.spells.entities.RayOfFrostEntity;
@@ -9,11 +10,15 @@ import com.soul.goe.spells.entities.ShockingGraspEntity;
 import com.soul.goe.spells.entities.LightningBoltEntity;
 import com.soul.goe.spells.entities.MagicMissileEntity;
 import com.soul.goe.spells.entities.FrostSpriteEntity;
+import com.soul.goe.spells.entities.ArcSpriteEntity;
+import com.soul.goe.spells.entities.FlameSpriteEntity;
+import com.soul.goe.spells.entities.DragonSpriteEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.function.Supplier;
@@ -64,7 +69,7 @@ public class ModEntityRegistry {
                             .sized(0.2F, 0.2F)
                             .clientTrackingRange(8)
                             .updateInterval(3)
-                            .build(ResourceKey.create(Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath(Goe.MODID, "cone_of_cold_projectile")))
+                            .build(ResourceKey.create(Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath(Goe.MODID, "shocking_grasp_projectile")))
             );
 
     public static final Supplier<EntityType<LightningBoltEntity>> LIGHTNING_BOLT_PROJECTILE =
@@ -92,6 +97,33 @@ public class ModEntityRegistry {
                             .clientTrackingRange(16)
                             .updateInterval(1)
                             .build(ResourceKey.create(Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath(Goe.MODID, "frost_sprite_projectile")))
+            );
+
+    public static final Supplier<EntityType<ArcSpriteEntity>> ARC_SPRITE_PROJECTILE =
+            ENTITY_TYPES.register("arc_sprite_projectile", () ->
+                    EntityType.Builder.<ArcSpriteEntity>of(ArcSpriteEntity::new, MobCategory.MISC)
+                            .sized(0.5F, 0.5F)
+                            .clientTrackingRange(16)
+                            .updateInterval(1)
+                            .build(ResourceKey.create(Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath(Goe.MODID, "arc_sprite_projectile")))
+            );
+
+    public static final Supplier<EntityType<FlameSpriteEntity>> FLAME_SPRITE_PROJECTILE =
+            ENTITY_TYPES.register("flame_sprite_projectile", () ->
+                    EntityType.Builder.<FlameSpriteEntity>of(FlameSpriteEntity::new, MobCategory.MISC)
+                            .sized(0.5F, 0.5F)
+                            .clientTrackingRange(16)
+                            .updateInterval(1)
+                            .build(ResourceKey.create(Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath(Goe.MODID, "flame_sprite_projectile")))
+            );
+
+    public static final Supplier<EntityType<DragonSpriteEntity>> DRAGON_SPRITE_PROJECTILE =
+            ENTITY_TYPES.register("dragon_sprite_projectile", () ->
+                    EntityType.Builder.<DragonSpriteEntity>of(DragonSpriteEntity::new, MobCategory.MISC)
+                            .sized(0.75F, 0.75F)
+                            .clientTrackingRange(20)
+                            .updateInterval(1)
+                            .build(ResourceKey.create(Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath(Goe.MODID, "dragon_sprite_projectile")))
             );
 
 }

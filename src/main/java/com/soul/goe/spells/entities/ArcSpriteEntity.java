@@ -8,32 +8,34 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.tags.EntityTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.monster.Witch;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 
-public class FrostSpriteEntity extends SpriteEntityBase {
-    private static final EntityDataAccessor<Float> DAMAGE = SynchedEntityData.defineId(FrostSpriteEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Integer> DURATION = SynchedEntityData.defineId(FrostSpriteEntity.class, EntityDataSerializers.INT);
-    private static final EntityDataAccessor<Integer> ATTACK_COOLDOWN = SynchedEntityData.defineId(FrostSpriteEntity.class, EntityDataSerializers.INT);
+public class ArcSpriteEntity extends SpriteEntityBase {
+    private static final EntityDataAccessor<Float> DAMAGE = SynchedEntityData.defineId(ArcSpriteEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Integer> DURATION = SynchedEntityData.defineId(ArcSpriteEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> ATTACK_COOLDOWN = SynchedEntityData.defineId(ArcSpriteEntity.class, EntityDataSerializers.INT);
 
     private static final float DEFAULT_DAMAGE = 1.5F;
     private static final int DEFAULT_DURATION = 2400;
     private static final int DEFAULT_ATTACK_COOLDOWN = 40;
     private static final double ORBIT_RADIUS = 3.0;
-    private static final double ORBIT_SPEED = 0.1;
+    private static final double ORBIT_SPEED = 0.12;
     private static final double DETECTION_RADIUS = 12.0;
-    private static final double ATTACK_SPEED = .5;
-    private static final double RETURN_SPEED = .5;
-    private static final int PARTICLE_INTERVAL = 3;
+    private static final double ATTACK_SPEED = .6;
+    private static final double RETURN_SPEED = .6;
+    private static final int PARTICLE_INTERVAL = 2;
 
     private int lifeTicks = 0;
     private double orbitAngle = 0.0;
@@ -41,11 +43,11 @@ public class FrostSpriteEntity extends SpriteEntityBase {
     private SpriteState state = SpriteState.ORBITING;
     private Vec3 lastOwnerPos;
 
-    public FrostSpriteEntity(EntityType<? extends FrostSpriteEntity> entityType, Level level) {
+    public ArcSpriteEntity(EntityType<? extends ArcSpriteEntity> entityType, Level level) {
         super(entityType, level);
     }
 
-    public FrostSpriteEntity(EntityType<? extends FrostSpriteEntity> entityType, Level level, LivingEntity owner) {
+    public ArcSpriteEntity(EntityType<? extends ArcSpriteEntity> entityType, Level level, LivingEntity owner) {
         super(entityType, level, owner);
         setDamage(DEFAULT_DAMAGE);
         setDuration(DEFAULT_DURATION);
@@ -152,12 +154,12 @@ public class FrostSpriteEntity extends SpriteEntityBase {
         }
 
         double x = owner.getX() + Math.cos(orbitAngle) * ORBIT_RADIUS;
-        double y = owner.getY() + 1.5 + Math.sin(orbitAngle * 3) * 0.5;
+        double y = owner.getY() + 1.5 + Math.sin(orbitAngle * 2.5) * 0.4;
         double z = owner.getZ() + Math.sin(orbitAngle) * ORBIT_RADIUS;
 
         Vec3 targetPos = new Vec3(x, y, z);
         Vec3 direction = targetPos.subtract(position()).normalize();
-        setDeltaMovement(direction.scale(0.3));
+        setDeltaMovement(direction.scale(0.35));
 
         setPos(getX() + getDeltaMovement().x, getY() + getDeltaMovement().y, getZ() + getDeltaMovement().z);
 
@@ -231,27 +233,22 @@ public class FrostSpriteEntity extends SpriteEntityBase {
         LivingEntity owner = (LivingEntity) getOwner();
         DamageSource damageSource = this.damageSources().thrown(this, owner);
 
-        if (targetEntity.getType().is(EntityTypeTags.UNDEAD)) {
-            applySlowEffect(targetEntity);
-            level().playSound(null, getX(), getY(), getZ(),
-                    SoundEvents.SNOW_HIT, SoundSource.NEUTRAL,
-                    0.5F, 1.8F + (random.nextFloat() - 0.5F) * 0.3F);
+        float damage = getDamage();
 
-            if (level() instanceof ServerLevel serverLevel) {
-                serverLevel.sendParticles(ParticleTypes.SNOWFLAKE,
-                        targetEntity.getX(), targetEntity.getY() + 0.5, targetEntity.getZ(), 15,
-                        0.5, 0.5, 0.5, 0.1);
-
-                serverLevel.sendParticles(ParticleTypes.ITEM_SNOWBALL,
-                        targetEntity.getX(), targetEntity.getY() + 0.5, targetEntity.getZ(), 5,
-                        0.3, 0.3, 0.3, 0.05);
+        if (targetEntity instanceof Creeper creeper) {
+            if (random.nextFloat() < 0.3f && !creeper.isPowered()) {
+                chargeCreeper(creeper);
             }
-
-            setAttackCooldown(DEFAULT_ATTACK_COOLDOWN);
-            return;
         }
 
-        float damage = getDamage();
+        if (targetEntity instanceof Witch) {
+            damage *= 0.5f;
+        }
+
+        if (targetEntity.isInWaterOrRain()) {
+            damage *= 1.5f;
+        }
+
         float healthBefore = targetEntity.getHealth();
         targetEntity.hurt(damageSource, damage);
         float healthAfter = targetEntity.getHealth();
@@ -259,54 +256,67 @@ public class FrostSpriteEntity extends SpriteEntityBase {
         boolean damaged = healthAfter < healthBefore;
 
         if (damaged && targetEntity.isAlive()) {
-            applySlowEffect(targetEntity);
+            applyShockEffect(targetEntity);
         }
 
         level().playSound(null, getX(), getY(), getZ(),
-                SoundEvents.SNOW_HIT, SoundSource.NEUTRAL,
-                0.5F, 1.8F + (random.nextFloat() - 0.5F) * 0.3F);
+                SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.NEUTRAL,
+                0.3F, 2.0F + (random.nextFloat() - 0.5F) * 0.3F);
 
         if (level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.SNOWFLAKE,
-                    targetEntity.getX(), targetEntity.getY() + 0.5, targetEntity.getZ(), 15,
+            serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK,
+                    targetEntity.getX(), targetEntity.getY() + 0.5, targetEntity.getZ(), 20,
                     0.5, 0.5, 0.5, 0.1);
 
-            serverLevel.sendParticles(ParticleTypes.ITEM_SNOWBALL,
-                    targetEntity.getX(), targetEntity.getY() + 0.5, targetEntity.getZ(), 5,
+            serverLevel.sendParticles(ParticleTypes.END_ROD,
+                    targetEntity.getX(), targetEntity.getY() + 0.5, targetEntity.getZ(), 8,
                     0.3, 0.3, 0.3, 0.05);
         }
 
         setAttackCooldown(DEFAULT_ATTACK_COOLDOWN);
     }
 
-    private void applySlowEffect(LivingEntity entity) {
-        Vec3 currentMotion = entity.getDeltaMovement();
-        entity.setDeltaMovement(currentMotion.scale(0.5));
+    private void chargeCreeper(Creeper creeper) {
+        if (level() instanceof ServerLevel serverLevel) {
+            LightningBolt lightning = new LightningBolt(EntityType.LIGHTNING_BOLT, serverLevel);
+            lightning.moveTo(creeper.getX(), creeper.getY(), creeper.getZ());
+            lightning.setVisualOnly(true);
+            creeper.thunderHit(serverLevel, lightning);
 
+            level().playSound(null, creeper.getX(), creeper.getY(), creeper.getZ(),
+                    SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.HOSTILE,
+                    0.5F, 1.0F + (random.nextFloat() - 0.5F) * 0.2F);
+        }
+    }
+
+    private void applyShockEffect(LivingEntity entity) {
         entity.addEffect(new net.minecraft.world.effect.MobEffectInstance(
-                net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN,
-                120,
-                2
+                net.minecraft.world.effect.MobEffects.WEAKNESS,
+                40,
+                1
         ));
+
+        Vec3 currentMotion = entity.getDeltaMovement();
+        entity.setDeltaMovement(currentMotion.scale(0.3));
     }
 
     private void spawnParticles() {
         if (lifeTicks % PARTICLE_INTERVAL == 0) {
             if (level() instanceof ServerLevel serverLevel) {
                 SimpleParticleType particleType = (state == SpriteState.SEEKING_FUSION) ?
-                        ParticleTypes.ENCHANT : ParticleTypes.SNOWFLAKE;
+                        ParticleTypes.ENCHANT : ParticleTypes.ELECTRIC_SPARK;
 
                 serverLevel.sendParticles(particleType,
                         getX(), getY(), getZ(), 1,
                         0.1, 0.1, 0.1, 0.02);
 
-                if (random.nextFloat() < 0.3f) {
+                if (random.nextFloat() < 0.4f) {
                     serverLevel.sendParticles(ParticleTypes.END_ROD,
                             getX(), getY(), getZ(), 1,
                             0.05, 0.05, 0.05, 0.01);
                 }
             } else {
-                level().addParticle(ParticleTypes.SNOWFLAKE,
+                level().addParticle(ParticleTypes.ELECTRIC_SPARK,
                         getX() + (random.nextGaussian() * 0.1),
                         getY() + (random.nextGaussian() * 0.1),
                         getZ() + (random.nextGaussian() * 0.1),
@@ -317,16 +327,16 @@ public class FrostSpriteEntity extends SpriteEntityBase {
 
     private void despawnWithEffect() {
         level().playSound(null, getX(), getY(), getZ(),
-                SoundEvents.SNOW_PLACE, SoundSource.NEUTRAL,
-                0.8F, 1.5F + (random.nextFloat() - 0.5F) * 0.2F);
+                SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.NEUTRAL,
+                0.6F, 1.8F + (random.nextFloat() - 0.5F) * 0.2F);
 
         if (level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.SNOWFLAKE,
-                    getX(), getY(), getZ(), 20,
+            serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK,
+                    getX(), getY(), getZ(), 25,
                     0.5, 0.5, 0.5, 0.1);
 
             serverLevel.sendParticles(ParticleTypes.END_ROD,
-                    getX(), getY(), getZ(), 5,
+                    getX(), getY(), getZ(), 8,
                     0.2, 0.2, 0.2, 0.05);
         }
 

@@ -1,4 +1,4 @@
-package com.soul.goe.rendering;
+package com.soul.goe.client.rendering;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.renderer.MultiBufferSource;

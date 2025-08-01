@@ -3,7 +3,7 @@ package com.soul.goe;
 import com.soul.goe.datagen.ModModelProvider;
 import com.soul.goe.items.custom.Wand;
 import com.soul.goe.registry.*;
-import com.soul.goe.rendering.EmptyEntityRenderer;
+import com.soul.goe.client.rendering.EmptyEntityRenderer;
 import com.soul.goe.spells.SpellInit;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -12,7 +12,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
-import com.soul.goe.rendering.PedestalRenderer;
+import com.soul.goe.client.rendering.PedestalRenderer;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.data.event.GatherDataEvent;
@@ -36,7 +36,7 @@ public class Goe {
         ModCreativeTabs.register(modEventBus);
         ModBlockEntities.register(modEventBus);
         ModEntityRegistry.ENTITY_TYPES.register(modEventBus);
-
+        ModMenuTypes.register(modEventBus);
 
         modEventBus.addListener(this::onCommonSetup);
 
@@ -71,6 +71,10 @@ public class Goe {
             event.registerEntityRenderer(ModEntityRegistry.LIGHTNING_BOLT_PROJECTILE.get(), EmptyEntityRenderer::new);
             event.registerEntityRenderer(ModEntityRegistry.MAGIC_MISSILE_PROJECTILE.get(), EmptyEntityRenderer::new);
             event.registerEntityRenderer(ModEntityRegistry.FROST_SPRITE_PROJECTILE.get(), EmptyEntityRenderer::new);
+            event.registerEntityRenderer(ModEntityRegistry.FLAME_SPRITE_PROJECTILE.get(), EmptyEntityRenderer::new);
+            event.registerEntityRenderer(ModEntityRegistry.ARC_SPRITE_PROJECTILE.get(), EmptyEntityRenderer::new);
+            event.registerEntityRenderer(ModEntityRegistry.DRAGON_SPRITE_PROJECTILE.get(), EmptyEntityRenderer::new);
+
         }
     }
 

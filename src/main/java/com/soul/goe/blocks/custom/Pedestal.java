@@ -2,8 +2,8 @@ package com.soul.goe.blocks.custom;
 
 import com.mojang.serialization.MapCodec;
 import com.soul.goe.Config;
-import com.soul.goe.blocks.entity.PedestalEntity;
 import com.soul.goe.blocks.entity.PedestalCraftingManager;
+import com.soul.goe.blocks.entity.PedestalEntity;
 import com.soul.goe.items.custom.Wand;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
@@ -25,17 +25,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 public class Pedestal extends BaseEntityBlock {
     public static final MapCodec<Pedestal> CODEC = simpleCodec(Pedestal::new);
 
-    private static final VoxelShape SHAPE = Shapes.or(
-            Block.box(0, 0, 0, 16, 2, 16),        // Base platform
-            Block.box(0, 14, 0, 16, 16, 16),      // Top platform
-            Block.box(0, 2, 0, 2, 14, 2),         // Corner leg 1
-            Block.box(0, 2, 14, 2, 14, 16),       // Corner leg 2
-            Block.box(14, 2, 0, 16, 14, 2),       // Corner leg 3
-            Block.box(14, 2, 14, 16, 14, 16),     // Corner leg 4
-            Block.box(6, 2, 6, 10, 10, 10),       // Central pillar
-            Block.box(4, 12, 4, 12, 14, 12),      // Upper funnel
-            Block.box(5, 10, 5, 11, 12, 11)       // Lower funnel
-    );
+    private static final VoxelShape SHAPE = Shapes.or(Block.box(4, 0, 4, 12, 1, 12), Block.box(6, 1, 6, 10, 9, 10), Block.box(5, 9, 5, 11, 11, 11), Block.box(4, 11, 4, 12, 13, 12), Block.box(5, 1, 9, 6, 2, 10), Block.box(10, 1, 6, 11, 2, 7), Block.box(10, 1, 9, 11, 2, 10), Block.box(5, 1, 6, 6, 2, 7), Block.box(6, 1, 5, 7, 2, 6), Block.box(9, 1, 5, 10, 2, 6), Block.box(6, 1, 10, 7, 2, 11), Block.box(9, 1, 10, 10, 2, 11));
 
     public Pedestal(Properties properties) {
         super(properties);
@@ -62,8 +52,7 @@ public class Pedestal extends BaseEntityBlock {
     }
 
     @Override
-    protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
-                                          Player player, InteractionHand hand, BlockHitResult hitResult) {
+    protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
         if (level.isClientSide()) return InteractionResult.SUCCESS;
 
         System.out.println("useItemOn called with stack: " + stack);
@@ -127,8 +116,7 @@ public class Pedestal extends BaseEntityBlock {
     }
 
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
-                                               Player player, BlockHitResult hitResult) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         System.out.println("useWithoutItem called - Client: " + level.isClientSide() + ", Shift: " + player.isShiftKeyDown());
 
         if (level.isClientSide()) return InteractionResult.SUCCESS;

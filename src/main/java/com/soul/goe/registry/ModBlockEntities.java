@@ -2,6 +2,7 @@ package com.soul.goe.registry;
 
 import com.soul.goe.Goe;
 import com.soul.goe.blocks.entity.EmpoweredLanternEntity;
+import com.soul.goe.blocks.entity.SpellBinderEntity;
 import com.soul.goe.blocks.entity.WardingLanternEntity;
 import com.soul.goe.blocks.entity.PedestalEntity;
 import net.minecraft.core.registries.Registries;
@@ -36,6 +37,14 @@ public class ModBlockEntities {
                     () -> new BlockEntityType<>(
                             PedestalEntity::new,
                             ModBlocks.PEDESTAL.get()
+                    )
+            );
+
+    public static final Supplier<BlockEntityType<SpellBinderEntity>> SPELL_BINDER =
+            BLOCK_ENTITIES.register("spell_binder",
+                    () -> new BlockEntityType<>(
+                            SpellBinderEntity::new,
+                            ModBlocks.SPELL_BINDER.get()
                     )
             );
 

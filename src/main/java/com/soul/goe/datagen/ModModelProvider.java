@@ -32,6 +32,7 @@ public class ModModelProvider extends ModelProvider {
         blockModels.blockStateOutput.accept(MultiVariantGenerator.multiVariant(ModBlocks.EMPOWERED_LANTERN.get()));
         blockModels.blockStateOutput.accept(MultiVariantGenerator.multiVariant(ModBlocks.WARDING_LANTERN.get()));
         blockModels.blockStateOutput.accept(MultiVariantGenerator.multiVariant(ModBlocks.PEDESTAL.get()));
+        blockModels.blockStateOutput.accept(MultiVariantGenerator.multiVariant(ModBlocks.SPELL_BINDER.get()));
 
         itemModels.generateFlatItem(ModItems.SALIS_MUNDUS.get(), ModelTemplates.FLAT_ITEM);
         itemModels.generateFlatItem(ModItems.AMETHYST_WAND.get(), ModelTemplates.FLAT_ITEM);
@@ -49,6 +50,10 @@ public class ModModelProvider extends ModelProvider {
         itemModels.generateFlatItem(ModItems.MAGIC_MISSILE_SPELL.get(), ModelTemplates.FLAT_ITEM);
         itemModels.generateFlatItem(ModItems.LUNGE_SPELL.get(), ModelTemplates.FLAT_ITEM);
         itemModels.generateFlatItem(ModItems.FROST_SPRITE_SPELL.get(), ModelTemplates.FLAT_ITEM);
+        itemModels.generateFlatItem(ModItems.ARC_SPRITE_SPELL.get(), ModelTemplates.FLAT_ITEM);
+        itemModels.generateFlatItem(ModItems.FLAME_SPRITE_SPELL.get(), ModelTemplates.FLAT_ITEM);
+        itemModels.generateFlatItem(ModItems.DRAGON_SPRITE_SPELL.get(), ModelTemplates.FLAT_ITEM);
+
 
 
     }

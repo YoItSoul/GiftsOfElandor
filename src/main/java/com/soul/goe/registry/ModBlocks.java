@@ -1,10 +1,7 @@
 package com.soul.goe.registry;
 
 import com.soul.goe.Goe;
-import com.soul.goe.blocks.custom.EmpoweredLantern;
-import com.soul.goe.blocks.custom.WardingLantern;
-import com.soul.goe.blocks.custom.Flare;
-import com.soul.goe.blocks.custom.Pedestal;
+import com.soul.goe.blocks.custom.*;
 import net.minecraft.world.level.material.MapColor;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredBlock;
@@ -31,6 +28,12 @@ public final class ModBlocks {
 
     public static final DeferredBlock<Pedestal> PEDESTAL = BLOCKS.registerBlock("pedestal",
             props -> new Pedestal(props.mapColor(MapColor.STONE)
+                    .strength(3.0f, 6.0f)
+                    .noOcclusion()
+                    .requiresCorrectToolForDrops()));
+
+    public static final DeferredBlock<SpellBinder> SPELL_BINDER = BLOCKS.registerBlock("spell_binder",
+            props -> new SpellBinder(props.mapColor(MapColor.STONE)
                     .strength(3.0f, 6.0f)
                     .requiresCorrectToolForDrops()));
 
