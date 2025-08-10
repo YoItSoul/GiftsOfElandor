@@ -2,10 +2,9 @@ package com.soul.goe.registry;
 
 import com.soul.goe.Goe;
 import com.soul.goe.blocks.entity.SpellBinderEntity;
-import com.soul.goe.menus.SpellBinderMenu;
+import com.soul.goe.client.menus.SpellBinderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.MenuType;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;

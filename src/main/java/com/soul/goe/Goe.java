@@ -4,7 +4,8 @@ import com.soul.goe.datagen.ModModelProvider;
 import com.soul.goe.items.custom.Wand;
 import com.soul.goe.registry.*;
 import com.soul.goe.client.rendering.EmptyEntityRenderer;
-import com.soul.goe.spells.SpellInit;
+import com.soul.goe.spells.util.SpellInit;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -15,6 +16,7 @@ import net.neoforged.fml.config.ModConfig;
 import com.soul.goe.client.rendering.PedestalRenderer;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
+
 import net.neoforged.neoforge.data.event.GatherDataEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 
@@ -41,6 +43,10 @@ public class Goe {
         modEventBus.addListener(this::onCommonSetup);
 
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+    }
+
+    public static ResourceLocation id(String path) {
+        return ResourceLocation.fromNamespaceAndPath(MODID, path);
     }
 
     private void onCommonSetup(final FMLCommonSetupEvent event) {
@@ -74,6 +80,8 @@ public class Goe {
             event.registerEntityRenderer(ModEntityRegistry.FLAME_SPRITE_PROJECTILE.get(), EmptyEntityRenderer::new);
             event.registerEntityRenderer(ModEntityRegistry.ARC_SPRITE_PROJECTILE.get(), EmptyEntityRenderer::new);
             event.registerEntityRenderer(ModEntityRegistry.DRAGON_SPRITE_PROJECTILE.get(), EmptyEntityRenderer::new);
+            event.registerEntityRenderer(ModEntityRegistry.MAGNET_PROJECTILE.get(), EmptyEntityRenderer::new);
+            event.registerEntityRenderer(ModEntityRegistry.MINING_FORCE_PROJECTILE.get(), EmptyEntityRenderer::new);
 
         }
     }

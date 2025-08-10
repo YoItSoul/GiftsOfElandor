@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "  S",
+    " H ",
+    "J  "
+  ],
+  "key": {
+    "S": "minecraft:amethyst_shard",
+    "H": "minecraft:string",
+    "J": "minecraft:stick"
+  },
+  "result": {
+    "id": "goe:wand",
+    "count": 1
+  }
+}

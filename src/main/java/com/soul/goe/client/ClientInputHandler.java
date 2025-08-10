@@ -14,6 +14,8 @@ public class ClientInputHandler {
 
     private static boolean wasKeyPressed = false;
 
+    // Replace the instanceof check in ClientInputHandler.java:
+
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
@@ -29,7 +31,9 @@ public class ClientInputHandler {
             return;
         }
 
-        boolean isRadialMenuOpen = minecraft.screen instanceof com.soul.goe.client.screens.SpellRadialScreen;
+        // Safe way to check screen type without direct class reference
+        boolean isRadialMenuOpen = minecraft.screen != null &&
+                "SpellRadialScreen".equals(minecraft.screen.getClass().getSimpleName());
 
         if (isRadialMenuOpen) {
             wasKeyPressed = ModKeybinds.SPELL_RADIAL_MENU.isDown();

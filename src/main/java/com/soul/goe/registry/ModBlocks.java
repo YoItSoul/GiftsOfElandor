@@ -2,6 +2,7 @@ package com.soul.goe.registry;
 
 import com.soul.goe.Goe;
 import com.soul.goe.blocks.custom.*;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.material.MapColor;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredBlock;
@@ -32,8 +33,17 @@ public final class ModBlocks {
                     .noOcclusion()
                     .requiresCorrectToolForDrops()));
 
+    public static final DeferredBlock<Block> DARKENED_COPPER_BLOCK = BLOCKS.registerBlock("darkened_copper_block",
+            props -> new Block(props.mapColor(MapColor.COLOR_BLACK)
+                    .strength(3.0f, 6.0f)
+                    .requiresCorrectToolForDrops()));
+
+    public static final DeferredBlock<Block> ASH_BLOCK = BLOCKS.registerBlock("ash_block",
+            props -> new Block(props.mapColor(MapColor.COLOR_GRAY)
+                    .strength(0.5f, 0.5f)));
+
     public static final DeferredBlock<SpellBinder> SPELL_BINDER = BLOCKS.registerBlock("spell_binder",
-            props -> new SpellBinder(props.mapColor(MapColor.STONE)
+            props -> new SpellBinder(props.mapColor(MapColor.COLOR_GRAY)
                     .strength(3.0f, 6.0f)
                     .requiresCorrectToolForDrops()));
 

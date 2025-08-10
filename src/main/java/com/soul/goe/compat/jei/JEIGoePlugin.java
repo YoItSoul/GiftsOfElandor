@@ -51,9 +51,8 @@ public class JEIGoePlugin implements IModPlugin {
     public void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
         registration.addCraftingStation(PEDESTAL_CRAFTING, new ItemStack(ModBlocks.PEDESTAL.get()));
         registration.addCraftingStation(WAND_CATALYST,
-                new ItemStack(com.soul.goe.registry.ModItems.AMETHYST_WAND.get()),
-                new ItemStack(com.soul.goe.registry.ModItems.EMPOWERED_AMETHYST_WAND.get()),
-                new ItemStack(com.soul.goe.registry.ModItems.ELANDORS_WAND.get()));
+                new ItemStack(com.soul.goe.registry.ModItems.WAND.get()));
+
     }
 
     private void registerWandCatalystRecipes(IRecipeRegistration registration) {

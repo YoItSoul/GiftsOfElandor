@@ -1,6 +1,5 @@
 package com.soul.goe.compat.jei.categories;
 
-import com.soul.goe.Goe;
 import com.soul.goe.compat.jei.JEIGoePlugin;
 import com.soul.goe.compat.jei.recipes.WandCatalystRecipe;
 import com.soul.goe.registry.ModItems;
@@ -20,7 +19,7 @@ public class WandCatalystCategory implements IRecipeCategory<WandCatalystRecipe>
     private final IDrawable icon;
 
     public WandCatalystCategory(IGuiHelper helper) {
-        this.icon = helper.createDrawableItemStack(new ItemStack(ModItems.ELANDORS_WAND.get()));
+        this.icon = helper.createDrawableItemStack(new ItemStack(ModItems.WAND.get()));
     }
 
     @Override
@@ -55,9 +54,7 @@ public class WandCatalystCategory implements IRecipeCategory<WandCatalystRecipe>
                 .add(new ItemStack(recipe.getInputBlock()));
 
         builder.addSlot(RecipeIngredientRole.INPUT, 10, 19)
-                .add(new ItemStack(ModItems.AMETHYST_WAND.get()))
-                .add(new ItemStack(ModItems.EMPOWERED_AMETHYST_WAND.get()))
-                .add(new ItemStack(ModItems.ELANDORS_WAND.get()));
+                .add(new ItemStack(ModItems.WAND.get()));
 
         builder.addSlot(RecipeIngredientRole.OUTPUT, 85, 19)
                 .add(recipe.getResult());

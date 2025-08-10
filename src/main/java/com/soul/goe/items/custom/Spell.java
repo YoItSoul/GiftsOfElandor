@@ -1,7 +1,7 @@
 package com.soul.goe.items.custom;
 
-import com.soul.goe.spells.SpellData;
-import com.soul.goe.spells.SpellRegistry;
+import com.soul.goe.spells.util.SpellData;
+import com.soul.goe.spells.util.SpellRegistry;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;

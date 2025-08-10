@@ -1,11 +1,15 @@
+// Replace your entire PedestalCraftingManager.java with this:
+
 package com.soul.goe.blocks.entity;
 
 import com.soul.goe.Config;
+import com.soul.goe.items.custom.Wand;
 import com.soul.goe.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.Level;
@@ -17,7 +21,8 @@ import java.util.List;
 
 public class PedestalCraftingManager {
 
-    public static boolean attemptCrafting(Level level, BlockPos centerPos, PedestalEntity centerPedestal) {
+    // Updated method signature to include player and wand parameters
+    public static boolean attemptCrafting(Level level, BlockPos centerPos, PedestalEntity centerPedestal, Player player, ItemStack wandStack) {
         System.out.println("=== PEDESTAL CRAFTING DEBUG START ===");
         System.out.println("Center position: " + centerPos);
 
@@ -47,7 +52,6 @@ public class PedestalCraftingManager {
         }
 
         System.out.println("Total available items: " + availableItems.size());
-
         System.out.println("Checking " + Config.getPedestalRecipes().size() + " recipes...");
 
         for (Config.PedestalRecipeData recipeData : Config.getPedestalRecipes().values()) {
@@ -67,6 +71,14 @@ public class PedestalCraftingManager {
                     spawnCraftingParticles(serverLevel, usedPedestalPositions, centerPos);
                 }
 
+                // Apply wand durability damage after successful crafting
+                if (wandStack.getItem() instanceof Wand && player != null) {
+                    // Determine damage based on recipe complexity
+                    int baseDamage = calculateCraftingDamage(recipeData);
+                    Wand.applyWandDurabilityDamage(wandStack, level, player, baseDamage);
+                    System.out.println("Applied " + baseDamage + " durability damage to wand for recipe: " + recipeData.name());
+                }
+
                 System.out.println("Pedestal crafting successful! Recipe: " + recipeData.name());
                 System.out.println("=== PEDESTAL CRAFTING DEBUG END ===");
                 return true;
@@ -78,6 +90,28 @@ public class PedestalCraftingManager {
         System.out.println("No matching recipe found");
         System.out.println("=== PEDESTAL CRAFTING DEBUG END ===");
         return false;
+    }
+
+    // Calculate damage based on recipe complexity
+    private static int calculateCraftingDamage(Config.PedestalRecipeData recipe) {
+        int ingredientCount = recipe.inputItems().length;
+
+        // Base damage scaling:
+        // 1-2 ingredients = 1 damage
+        // 3-4 ingredients = 2 damage
+        // 5+ ingredients = 3 damage
+        if (ingredientCount <= 2) {
+            return 1;
+        } else if (ingredientCount <= 4) {
+            return 2;
+        } else {
+            return 3;
+        }
+    }
+
+    // Keep the original method for backward compatibility, but without durability damage
+    public static boolean attemptCrafting(Level level, BlockPos centerPos, PedestalEntity centerPedestal) {
+        return attemptCrafting(level, centerPos, centerPedestal, null, ItemStack.EMPTY);
     }
 
     private static boolean matchesRecipe(ItemStack centerItem, List<ItemStack> availableItems, Config.PedestalRecipeData recipe) {

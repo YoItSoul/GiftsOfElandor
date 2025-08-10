@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "com.soul.goe.mixins",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "goe.refmap.json",
+  "mixins": [
+    "FireBlockMixin"
+  ],
+  "client": [],
+  "server": [],
+  "minVersion": "0.8"
+}

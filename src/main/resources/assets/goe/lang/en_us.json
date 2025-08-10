@@ -1,11 +1,15 @@
 {
   "itemGroup.goe.gifts_of_elandor": "Gifts of Elandor",
-
   "item.goe.salis_mundus": "Salis Mundus",
-  "item.goe.amethyst_wand": "Amethyst Wand",
+  "item.goe.wand": "Wand",
   "item.goe.empowered_amethyst_wand": "Empowered Amethyst Wand",
   "item.goe.elandors_wand": "Elandor's Wand",
   "item.goe.elandors_charm": "Elandor's Charm",
+  "item.goe.darkened_copper_ingot": "Ashen Copper Ingot",
+  "block.goe.darkened_copper_block": "Ashen Copper Block",
+
+  "item.goe.ash": "Ash",
+  "block.goe.ash_block": "Ash Block",
 
   "item.goe.firebolt_spell": "Firebolt Spell",
   "item.goe.fireball_spell": "Fireball Spell",
@@ -14,6 +18,7 @@
   "item.goe.shocking_grasp_spell": "Shocking Grasp Spell",
   "item.goe.lightning_bolt_spell": "Lightning Bolt Spell",
   "item.goe.levitate_spell": "Levitate Spell",
+  "item.goe.mining_force_spell": "Mining Force Spell",
   "item.goe.fly_spell": "Fly Spell",
   "item.goe.magic_missile_spell": "Magic Missile Spell",
   "item.goe.lunge_spell": "Lunge Spell",
@@ -21,28 +26,19 @@
   "item.goe.arc_sprite_spell": "Arc Sprite Spell",
   "item.goe.flame_sprite_spell": "Flame Sprite Spell",
   "item.goe.dragon_sprite_spell": "Dragon Sprite Spell",
-
-
-
   "block.goe.flare": "Flare",
   "block.goe.empowered_lantern": "Empowered Lantern",
   "block.goe.warding_lantern": "Warding Lantern",
   "block.goe.pedestal": "Pedestal",
-  "block.goe.spell_binder": "Spell Binder",
-
-
+  "block.goe.spell_binder": "Wand Station",
   "jei.goe.category.pedestal_crafting": "Pedestal Crafting",
   "jei.goe.category.wand_catalyst": "Wand Catalyst",
-
   "jei.goe.category.pedestal_crafting.description": "Place items on Pedestals to craft magical items. The center item goes on the Pedestal, and the surrounding ingredients are placed on nearby Pedestals within range.",
   "jei.goe.category.wand_catalyst.description": "Use any wand to transform blocks into valuable materials. Right-click a block with a wand to perform the transformation.",
-
   "jei.goe.info.pedestal_crafting.title": "How to Use Pedestal Crafting",
   "jei.goe.info.pedestal_crafting.text": "1. Place the center item on a Pedestal\n2. Place surrounding ingredients on nearby Pedestals\n3. Right-click the center Pedestal to craft\n4. All items within the search radius will be consumed",
-
   "jei.goe.info.wand_catalyst.title": "How to Use Wand Catalyst",
   "jei.goe.info.wand_catalyst.text": "1. Hold any wand in your hand\n2. Right-click on the target block\n3. The block will be consumed and items will drop\n4. The wand will take durability damage",
-
   "jei.goe.tooltip.requires_pedestal": "Requires: Pedestal",
   "jei.goe.tooltip.requires_wand": "Requires: Any Wand",
   "jei.goe.tooltip.search_radius": "Search Radius: %d blocks",

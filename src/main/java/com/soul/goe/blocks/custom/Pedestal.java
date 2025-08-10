@@ -63,7 +63,8 @@ public class Pedestal extends BaseEntityBlock {
                 System.out.println("Pedestal crafting enabled: " + Config.ENABLE_PEDESTAL_CRAFTING.get());
                 if (Config.ENABLE_PEDESTAL_CRAFTING.get()) {
                     System.out.println("Wand crafting attempted");
-                    boolean success = PedestalCraftingManager.attemptCrafting(level, pos, pedestal);
+                    // Pass player and wand stack to crafting manager
+                    boolean success = PedestalCraftingManager.attemptCrafting(level, pos, pedestal, player, stack);
                     System.out.println("Crafting result: " + success);
                     return success ? InteractionResult.SUCCESS : InteractionResult.FAIL;
                 }
@@ -108,12 +109,6 @@ public class Pedestal extends BaseEntityBlock {
         return InteractionResult.PASS;
     }
 
-    private boolean isWand(ItemStack stack) {
-        // Check if the item is a Wand instance
-        boolean isWand = stack.getItem() instanceof Wand;
-        System.out.println("Checking if wand - item: " + stack.getItem().getClass().getSimpleName() + ", is wand: " + isWand);
-        return isWand;
-    }
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
@@ -128,7 +123,8 @@ public class Pedestal extends BaseEntityBlock {
 
             if (player.isShiftKeyDown() && isWand(heldItem)) {
                 System.out.println("Wand crafting attempted via useWithoutItem");
-                boolean success = PedestalCraftingManager.attemptCrafting(level, pos, pedestal);
+                // Pass player and wand stack to crafting manager
+                boolean success = PedestalCraftingManager.attemptCrafting(level, pos, pedestal, player, heldItem);
                 return success ? InteractionResult.SUCCESS : InteractionResult.FAIL;
             }
 
@@ -146,6 +142,14 @@ public class Pedestal extends BaseEntityBlock {
         }
 
         return InteractionResult.PASS;
+    }
+
+
+    private boolean isWand(ItemStack stack) {
+        // Check if the item is a Wand instance
+        boolean isWand = stack.getItem() instanceof Wand;
+        System.out.println("Checking if wand - item: " + stack.getItem().getClass().getSimpleName() + ", is wand: " + isWand);
+        return isWand;
     }
 
     @Override

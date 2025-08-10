@@ -5,6 +5,7 @@ import com.soul.goe.blocks.entity.SpellBinderEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
@@ -93,7 +94,22 @@ public class SpellBinder extends BaseEntityBlock {
         if (!state.is(newState.getBlock())) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof SpellBinderEntity spellBinderEntity) {
-                spellBinderEntity.onWandRemoved();
+                spellBinderEntity.onWandRemoved(); // This will handle the wand properly
+
+                // Drop any remaining items (loose parts that weren't in the wand)
+                if (!level.isClientSide()) {
+                    for (int i = 0; i < spellBinderEntity.getInventory().getSlots(); i++) {
+                        ItemStack stack = spellBinderEntity.getInventory().getStackInSlot(i);
+                        if (!stack.isEmpty()) {
+                            double x = pos.getX() + 0.5;
+                            double y = pos.getY() + 0.5;
+                            double z = pos.getZ() + 0.5;
+
+                            net.minecraft.world.entity.item.ItemEntity itemEntity = new net.minecraft.world.entity.item.ItemEntity(level, x, y, z, stack);
+                            level.addFreshEntity(itemEntity);
+                        }
+                    }
+                }
             }
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
