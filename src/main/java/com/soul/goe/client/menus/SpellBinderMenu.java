@@ -18,6 +18,13 @@ public class SpellBinderMenu extends AbstractContainerMenu {
     private final SpellBinderEntity blockEntity;
     private final ContainerLevelAccess access;
 
+    private static final int WAND_SLOT_INDEX = 0;
+    private static final int FIRST_PART_SLOT = 1;
+    private static final int LAST_PART_SLOT = 3;
+    private static final int FIRST_SPELL_SLOT = 4;
+    private static final int MAX_SPELL_SLOTS = 7;
+    private static final int TOTAL_CONTAINER_SLOTS = 1 + 3 + MAX_SPELL_SLOTS;
+
     public SpellBinderMenu(int windowId, Inventory playerInventory, SpellBinderEntity entity) {
         super(ModMenuTypes.SPELL_BINDER.get(), windowId);
         this.blockEntity = entity;
@@ -29,8 +36,9 @@ public class SpellBinderMenu extends AbstractContainerMenu {
         addSlot(new WandPartSlot(blockEntity.getInventory(), 2, 80, 40, "binder"));
         addSlot(new WandPartSlot(blockEntity.getInventory(), 3, 102, 40, "cap"));
 
-        for (int col = 0; col < 7; col++) {
-            addSlot(new SpellSlot(blockEntity.getInventory(), col + 4, 26 + col * 18, 62, this));
+        for (int col = 0; col < MAX_SPELL_SLOTS; col++) {
+            int slotIndex = FIRST_SPELL_SLOT + col;
+            addSlot(new SpellSlot(blockEntity.getInventory(), slotIndex, 26 + col * 18, 62, this));
         }
 
         for (int row = 0; row < 3; row++) {
@@ -68,7 +76,7 @@ public class SpellBinderMenu extends AbstractContainerMenu {
 
         private boolean hasIncompleteParts() {
             for (int i = 1; i <= 3; i++) {
-                if (menu.getSlot(i).getItem().isEmpty()) {
+                if (i < menu.slots.size() && menu.getSlot(i).getItem().isEmpty()) {
                     return true;
                 }
             }
@@ -131,13 +139,13 @@ public class SpellBinderMenu extends AbstractContainerMenu {
         }
 
         @Override
+        public boolean mayPickup(Player player) {
+            return isActive();
+        }
+
+        @Override
         public boolean isActive() {
-            ItemStack wandStack = menu.blockEntity.getInventory().getStackInSlot(0);
-            if (wandStack.getItem() instanceof Wand) {
-                int spellSlotIndex = getSlotIndex() - 4;
-                return spellSlotIndex < menu.blockEntity.getCurrentAvailableSpells();
-            }
-            return false;
+            return menu.blockEntity.isSpellSlotActive(getSlotIndex());
         }
     }
 
@@ -150,8 +158,8 @@ public class SpellBinderMenu extends AbstractContainerMenu {
             ItemStack slotStack = slot.getItem();
             itemstack = slotStack.copy();
 
-            if (index < 13) {
-                if (!moveItemStackTo(slotStack, 13, slots.size(), true)) {
+            if (index < TOTAL_CONTAINER_SLOTS) {
+                if (!moveItemStackTo(slotStack, TOTAL_CONTAINER_SLOTS, slots.size(), true)) {
                     return ItemStack.EMPTY;
                 }
             } else {
@@ -163,12 +171,14 @@ public class SpellBinderMenu extends AbstractContainerMenu {
                     ItemStack wandStack = this.blockEntity.getInventory().getStackInSlot(0);
                     if (wandStack.getItem() instanceof Wand) {
                         boolean moved = false;
-                        for (int i = 4; i < 13; i++) {
-                            Slot spellSlot = slots.get(i);
-                            if (spellSlot.isActive() && !spellSlot.hasItem()) {
-                                if (moveItemStackTo(slotStack, i, i + 1, false)) {
-                                    moved = true;
-                                    break;
+                        for (int i = FIRST_SPELL_SLOT; i < FIRST_SPELL_SLOT + MAX_SPELL_SLOTS; i++) {
+                            if (i < slots.size()) {
+                                Slot spellSlot = slots.get(i);
+                                if (spellSlot.isActive() && !spellSlot.hasItem()) {
+                                    if (moveItemStackTo(slotStack, i, i + 1, false)) {
+                                        moved = true;
+                                        break;
+                                    }
                                 }
                             }
                         }
@@ -189,7 +199,7 @@ public class SpellBinderMenu extends AbstractContainerMenu {
                                 default -> -1;
                             };
 
-                            if (targetSlot != -1 && !slots.get(targetSlot).hasItem()) {
+                            if (targetSlot != -1 && targetSlot < slots.size() && !slots.get(targetSlot).hasItem()) {
                                 if (!moveItemStackTo(slotStack, targetSlot, targetSlot + 1, false)) {
                                     return ItemStack.EMPTY;
                                 }
@@ -259,7 +269,7 @@ public class SpellBinderMenu extends AbstractContainerMenu {
     }
 
     public boolean isPartSlot(int slotIndex) {
-        return slotIndex >= 1 && slotIndex <= 3;
+        return slotIndex >= FIRST_PART_SLOT && slotIndex <= LAST_PART_SLOT;
     }
 
     public String getPartType(int slotIndex) {
@@ -272,7 +282,7 @@ public class SpellBinderMenu extends AbstractContainerMenu {
     }
 
     public boolean isSpellSlot(int slotIndex) {
-        return slotIndex >= 4 && slotIndex <= 12;
+        return slotIndex >= FIRST_SPELL_SLOT && slotIndex < FIRST_SPELL_SLOT + MAX_SPELL_SLOTS;
     }
 
     public int getCurrentAvailableSpells() {

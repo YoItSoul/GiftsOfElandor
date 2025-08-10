@@ -16,7 +16,7 @@ import net.neoforged.api.distmarker.OnlyIn;
 public class WandChargingOverlay implements LayeredDraw.Layer {
     private static final int BAR_WIDTH = 20;
     private static final int BAR_HEIGHT = 2;
-    private static final int BAR_OFFSET_Y = 5;
+    private static final int BAR_OFFSET_Y = 7;
     private static final int BORDER_WIDTH = 1;
 
     private static final int BACKGROUND_COLOR = 0x80000000;

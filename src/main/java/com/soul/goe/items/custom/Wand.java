@@ -20,6 +20,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -70,11 +71,9 @@ public final class Wand extends Item {
 
     private final boolean hasFoilEffect;
 
-
     public Wand(Properties properties, boolean hasFoilEffect) {
         super(properties);
         this.hasFoilEffect = hasFoilEffect;
-
     }
 
     @Override
@@ -294,7 +293,9 @@ public final class Wand extends Item {
         ensureWandHasDefaultParts(wandStack);
 
         if (getCurrentSpell(wandStack, level.registryAccess()).isEmpty()) {
-            showMessage(player, "No spell bound to this wand!");
+            if (!level.isClientSide()) {
+                showMessage(player, "No spell bound to this wand!");
+            }
             return InteractionResult.FAIL;
         }
 
@@ -425,6 +426,10 @@ public final class Wand extends Item {
             return false;
         }
 
+        if (level.isClientSide()) {
+            return true;
+        }
+
         WandStats wandStats = getWandStats(stack);
         if (wandStats == null) {
             playFailureEffects(level, player);
@@ -445,12 +450,16 @@ public final class Wand extends Item {
     }
 
     private void playChargeCompleteSound(Level level, Player player) {
-        if (!level.isClientSide()) {
-            level.playSound(null, player.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.5F, 1.5F);
+        if (!level.isClientSide() && level instanceof ServerLevel serverLevel) {
+            serverLevel.playSound(null, player.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.5F, 1.5F);
         }
     }
 
     private boolean attemptSpellCast(Level level, Player player, ItemStack wandStack) {
+        if (level.isClientSide()) {
+            return true;
+        }
+
         ItemStack spellStack = getCurrentSpell(wandStack, level.registryAccess());
 
         if (spellStack.isEmpty()) {
@@ -474,9 +483,7 @@ public final class Wand extends Item {
 
         if (!spellData.canCast(player)) {
             playFailureEffects(level, player);
-            if (!level.isClientSide()) {
-                showDetailedIngredientList(player, spellData);
-            }
+            showDetailedIngredientList(player, spellData);
             return false;
         }
 
@@ -497,8 +504,7 @@ public final class Wand extends Item {
         if (wandStats.stability() >= 2.0f) {
             backfireChance = 0.0f;
         } else {
-            // Scale from 45% backfire at 0.1 stability down to 2.5% at 1.9 stability
-            backfireChance = Math.max(0.0f, (2.0f - wandStats.stability()) / 2.0f * 0.5f);
+            backfireChance = Math.max(0.0f, (2.0f - wandStats.stability()) / 2.0f * 0.25f);
         }
 
         if (level.random.nextFloat() < backfireChance) {
@@ -513,12 +519,14 @@ public final class Wand extends Item {
     }
 
     private boolean handleSpellBackfire(Level level, Player player, ItemStack wandStack, SpellData spellData, WandStats wandStats) {
-        // Roll for each effect independently
-        boolean fizzle = level.random.nextFloat() < 0.8f;  // 80% chance to fizzle
-        boolean harmPlayer = level.random.nextFloat() < 0.2f;  // 20% chance to harm player
-        boolean damageWand = level.random.nextFloat() < 0.25f; // 25% chance to damage wand
+        if (level.isClientSide()) {
+            return false;
+        }
 
-        // Ensure at least one effect happens
+        boolean fizzle = level.random.nextFloat() < 0.8f;
+        boolean harmPlayer = level.random.nextFloat() < 0.2f;
+        boolean damageWand = level.random.nextFloat() < 0.25f;
+
         if (!fizzle && !harmPlayer && !damageWand) {
             fizzle = true;
         }
@@ -533,17 +541,12 @@ public final class Wand extends Item {
 
         if (harmPlayer) {
             effects.add("harmed you");
-            // Scale damage based on power (1-10 damage range)
             int baseDamage = Math.max(1, Math.min(10, Math.round(wandStats.power() * 3.0f)));
-
-            if (!level.isClientSide()) {
-                player.hurt(player.damageSources().magic(), baseDamage);
-            }
+            player.hurt(player.damageSources().magic(), baseDamage);
         }
 
         if (damageWand) {
             effects.add("damaged your wand");
-            // Scale wand damage based on power (2-6 extra damage)
             int extraDamage = Math.max(2, Math.min(6, Math.round(wandStats.power() * 2.0f)));
             applyWandDurabilityDamage(wandStack, level, player, extraDamage);
         }
@@ -557,7 +560,6 @@ public final class Wand extends Item {
 
         showMessage(player, backfireMessage);
 
-        // Always apply base wand damage for the failed attempt
         if (!damageWand) {
             applyWandDurabilityDamage(wandStack, level, player, 1);
         }
@@ -576,33 +578,30 @@ public final class Wand extends Item {
         int requiredCastTime = Math.round(totalStats * 20);
         int useDuration = getUseDuration(stack, entity) - remainingUseDuration;
 
-        // Play sound exactly when we reach required cast time
-        if (useDuration == requiredCastTime) {
+        if (useDuration == requiredCastTime && !level.isClientSide()) {
             playChargeCompleteSound(level, player);
         }
     }
 
     private void playSuccessEffects(Level level, Player player) {
-        if (!level.isClientSide()) {
-            level.playSound(null, player.blockPosition(), SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, SOUND_VOLUME, SOUND_PITCH + 0.2F);
-
-            if (level instanceof ServerLevel serverLevel) {
-                serverLevel.sendParticles(ParticleTypes.ENCHANT, player.getX(), player.getY() + 1.0, player.getZ(), 15, 0.5, 0.5, 0.5, 0.1);
-            }
+        if (!level.isClientSide() && level instanceof ServerLevel serverLevel) {
+            serverLevel.playSound(null, player.blockPosition(), SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, SOUND_VOLUME, SOUND_PITCH + 0.2F);
+            serverLevel.sendParticles(ParticleTypes.ENCHANT, player.getX(), player.getY() + 1.0, player.getZ(), 15, 0.5, 0.5, 0.5, 0.1);
         }
     }
 
     private void playFailureEffects(Level level, Player player) {
-        if (!level.isClientSide()) {
-            level.playSound(null, player.blockPosition(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, SOUND_VOLUME * 0.7F, SOUND_PITCH - 0.3F);
-
-            if (level instanceof ServerLevel serverLevel) {
-                serverLevel.sendParticles(ParticleTypes.SMOKE, player.getX(), player.getY() + 1.0, player.getZ(), 10, 0.3, 0.3, 0.3, 0.05);
-            }
+        if (!level.isClientSide() && level instanceof ServerLevel serverLevel) {
+            serverLevel.playSound(null, player.blockPosition(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, SOUND_VOLUME * 0.7F, SOUND_PITCH - 0.3F);
+            serverLevel.sendParticles(ParticleTypes.SMOKE, player.getX(), player.getY() + 1.0, player.getZ(), 10, 0.3, 0.3, 0.3, 0.05);
         }
     }
 
     private void showDetailedIngredientList(Player player, SpellData spellData) {
+        if (player.level().isClientSide()) {
+            return;
+        }
+
         ItemStack currentSpell = getCurrentSpell(player.getMainHandItem(), player.level().registryAccess());
         String spellName = currentSpell.isEmpty() ? "Unknown Spell" : currentSpell.getHoverName().getString();
 
@@ -637,7 +636,9 @@ public final class Wand extends Item {
     }
 
     private void showMessage(Player player, String message) {
-        player.displayClientMessage(Component.literal(message), true);
+        if (!player.level().isClientSide()) {
+            player.displayClientMessage(Component.literal(message), true);
+        }
     }
 
     @Override
@@ -786,6 +787,10 @@ public final class Wand extends Item {
     }
 
     private void transformBlock(Level level, BlockPos blockPos, BlockState blockState, Player player, ItemStack wandStack) {
+        if (level.isClientSide()) {
+            return;
+        }
+
         level.removeBlock(blockPos, false);
         playTransformationEffects(level, blockPos);
         spawnResultItems(level, blockPos, blockState);
@@ -793,14 +798,17 @@ public final class Wand extends Item {
     }
 
     private void playTransformationEffects(Level level, BlockPos blockPos) {
-        level.playSound(null, blockPos, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.BLOCKS, SOUND_VOLUME, SOUND_PITCH);
-
-        if (level instanceof ServerLevel serverLevel) {
+        if (!level.isClientSide() && level instanceof ServerLevel serverLevel) {
+            serverLevel.playSound(null, blockPos, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.BLOCKS, SOUND_VOLUME, SOUND_PITCH);
             spawnParticles(serverLevel, blockPos);
         }
     }
 
     private void spawnResultItems(Level level, BlockPos blockPos, BlockState blockState) {
+        if (level.isClientSide()) {
+            return;
+        }
+
         ItemStack catalogResult = WAND_CATALYSTS.get(blockState.getBlock());
         ItemStack result = catalogResult.copy();
 
@@ -820,6 +828,10 @@ public final class Wand extends Item {
     }
 
     public static void applyWandDurabilityDamage(ItemStack wandStack, Level level, Player player, int baseDamage) {
+        if (level.isClientSide()) {
+            return;
+        }
+
         WandStats stats = getWandStats(wandStack);
         if (stats == null) {
             if (level instanceof ServerLevel serverLevel) {

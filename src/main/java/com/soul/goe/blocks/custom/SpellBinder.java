@@ -21,7 +21,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 public class SpellBinder extends BaseEntityBlock {
     public static final MapCodec<SpellBinder> CODEC = simpleCodec(SpellBinder::new);
 
-    private static final VoxelShape SHAPE = Shapes.or(Block.box(0, 0, 0, 16, 2, 16),        // Base platform
+    private static final VoxelShape SHAPE = Shapes.or(
+            Block.box(0, 0, 0, 16, 2, 16),        // Base platform
             Block.box(0, 14, 0, 16, 16, 16),      // Top platform
             Block.box(0, 2, 0, 2, 14, 2),         // Corner leg 1
             Block.box(0, 2, 14, 2, 14, 16),       // Corner leg 2
@@ -75,13 +76,15 @@ public class SpellBinder extends BaseEntityBlock {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        if (!level.isClientSide) {
-            BlockEntity blockEntity = level.getBlockEntity(pos);
-            if (blockEntity instanceof SpellBinderEntity spellBinderEntity) {
-                player.openMenu(spellBinderEntity, pos);
-            }
+        if (level.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
-        return InteractionResult.SUCCESS;
+
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (blockEntity instanceof SpellBinderEntity spellBinderEntity) {
+            player.openMenu(spellBinderEntity, pos);
+        }
+        return InteractionResult.CONSUME;
     }
 
     @Override
@@ -94,9 +97,8 @@ public class SpellBinder extends BaseEntityBlock {
         if (!state.is(newState.getBlock())) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof SpellBinderEntity spellBinderEntity) {
-                spellBinderEntity.onWandRemoved(); // This will handle the wand properly
+                spellBinderEntity.onWandRemoved();
 
-                // Drop any remaining items (loose parts that weren't in the wand)
                 if (!level.isClientSide()) {
                     for (int i = 0; i < spellBinderEntity.getInventory().getSlots(); i++) {
                         ItemStack stack = spellBinderEntity.getInventory().getStackInSlot(i);

@@ -40,14 +40,18 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
     private static final int BINDER_SLOT = 2;
     private static final int CAP_SLOT = 3;
     private static final int FIRST_SPELL_SLOT = 4;
-    private static final int MAX_SPELL_SLOTS = 9;
-    private static final int TOTAL_SLOTS = 1 + 3 + MAX_SPELL_SLOTS;
+    private static final int MAX_SPELL_SLOTS = 7;
+    private static final int TOTAL_SLOTS = 11;
 
     private boolean isLoadingFromWand = false;
 
     public SpellBinderEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.SPELL_BINDER.get(), pos, state);
-        this.inventory = new ItemStackHandler(TOTAL_SLOTS) {
+        this.inventory = createInventory();
+    }
+
+    private ItemStackHandler createInventory() {
+        return new ItemStackHandler(TOTAL_SLOTS) {
             @Override
             public boolean isItemValid(int slot, ItemStack stack) {
                 if (slot == WAND_SLOT) {
@@ -59,7 +63,11 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
                 } else if (slot == CAP_SLOT) {
                     return isValidWandPart(stack, "cap");
                 } else if (slot >= FIRST_SPELL_SLOT && slot < FIRST_SPELL_SLOT + MAX_SPELL_SLOTS) {
-                    return stack.getItem() instanceof Spell;
+                    if (stack.getItem() instanceof Spell) {
+                        int spellSlotIndex = slot - FIRST_SPELL_SLOT;
+                        return spellSlotIndex < getCurrentAvailableSpells();
+                    }
+                    return stack.isEmpty();
                 }
                 return false;
             }
@@ -76,12 +84,41 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
                     return;
                 }
 
-                if (slot == WAND_SLOT) {
-                    handleWandChange();
-                } else if (slot >= HANDLE_SLOT && slot <= CAP_SLOT) {
-                    updateWandParts();
-                } else if (slot >= FIRST_SPELL_SLOT) {
-                    updateWandSpells();
+                if (level != null && !level.isClientSide()) {
+                    if (slot == WAND_SLOT) {
+                        handleWandChange();
+                    } else if (slot >= HANDLE_SLOT && slot <= CAP_SLOT) {
+                        updateWandParts();
+                    } else if (slot >= FIRST_SPELL_SLOT) {
+                        updateWandSpells();
+                    }
+                }
+            }
+
+            @Override
+            public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
+                // Save current items before deserialization
+                ItemStack[] currentItems = new ItemStack[TOTAL_SLOTS];
+                for (int i = 0; i < Math.min(getSlots(), TOTAL_SLOTS); i++) {
+                    currentItems[i] = getStackInSlot(i).copy();
+                }
+
+                // Perform standard deserialization
+                super.deserializeNBT(provider, nbt);
+
+                // Force correct slot count and restore items if needed
+                if (getSlots() != TOTAL_SLOTS) {
+                    // Create new inventory with correct size
+                    setSize(TOTAL_SLOTS);
+
+                    // Restore items up to the correct slot limit
+                    for (int i = 0; i < TOTAL_SLOTS; i++) {
+                        if (i < currentItems.length && currentItems[i] != null) {
+                            setStackInSlot(i, currentItems[i]);
+                        } else {
+                            setStackInSlot(i, ItemStack.EMPTY);
+                        }
+                    }
                 }
             }
         };
@@ -96,6 +133,10 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
     }
 
     private void handleWandChange() {
+        if (level == null || level.isClientSide()) {
+            return;
+        }
+
         ItemStack wandStack = inventory.getStackInSlot(WAND_SLOT);
 
         if (!wandStack.isEmpty() && wandStack.getItem() instanceof Wand) {
@@ -107,6 +148,10 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
     }
 
     private void loadFromWand(ItemStack wandStack) {
+        if (level == null) {
+            return;
+        }
+
         isLoadingFromWand = true;
         clearAllSlots();
 
@@ -122,13 +167,17 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
             CompoundTag wandTag = customData.copyTag();
             if (wandTag.contains("BoundSpells")) {
                 ListTag spellList = wandTag.getList("BoundSpells", Tag.TAG_COMPOUND);
+                int maxAllowedSpells = getMaxAvailableSpells(wandStack);
 
-                for (int i = 0; i < Math.min(spellList.size(), getMaxAvailableSpells(wandStack)); i++) {
+                for (int i = 0; i < Math.min(spellList.size(), maxAllowedSpells); i++) {
                     CompoundTag spellTag = spellList.getCompound(i);
                     if (!spellTag.isEmpty()) {
                         ItemStack spellStack = ItemStack.parseOptional(level.registryAccess(), spellTag);
                         if (!spellStack.isEmpty()) {
-                            inventory.setStackInSlot(FIRST_SPELL_SLOT + i, spellStack);
+                            int targetSlot = FIRST_SPELL_SLOT + i;
+                            if (targetSlot < TOTAL_SLOTS) {
+                                inventory.setStackInSlot(targetSlot, spellStack);
+                            }
                         }
                     }
                 }
@@ -160,11 +209,18 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
         inventory.setStackInSlot(BINDER_SLOT, ItemStack.EMPTY);
         inventory.setStackInSlot(CAP_SLOT, ItemStack.EMPTY);
         for (int i = 0; i < MAX_SPELL_SLOTS; i++) {
-            inventory.setStackInSlot(FIRST_SPELL_SLOT + i, ItemStack.EMPTY);
+            int slotIndex = FIRST_SPELL_SLOT + i;
+            if (slotIndex < TOTAL_SLOTS) {
+                inventory.setStackInSlot(slotIndex, ItemStack.EMPTY);
+            }
         }
     }
 
     private void updateWandParts() {
+        if (level == null || level.isClientSide()) {
+            return;
+        }
+
         ItemStack wandStack = inventory.getStackInSlot(WAND_SLOT);
 
         String handleMaterial = getMaterialFromSlot(HANDLE_SLOT, "handle");
@@ -184,8 +240,19 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
 
         if (handleMaterial != null && binderMaterial != null && capMaterial != null) {
             Wand.setWandParts(wandStack, handleMaterial, binderMaterial, capMaterial);
+            clearExcessSpellSlots();
         } else {
             clearWandParts(wandStack);
+        }
+    }
+
+    private void clearExcessSpellSlots() {
+        int currentMaxSpells = getCurrentAvailableSpells();
+        for (int i = currentMaxSpells; i < MAX_SPELL_SLOTS; i++) {
+            int slotIndex = FIRST_SPELL_SLOT + i;
+            if (slotIndex < TOTAL_SLOTS) {
+                inventory.setStackInSlot(slotIndex, ItemStack.EMPTY);
+            }
         }
     }
 
@@ -199,6 +266,7 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
         if (!newWand.isEmpty()) {
             Wand.setWandParts(newWand, handleMaterial, binderMaterial, capMaterial);
             inventory.setStackInSlot(WAND_SLOT, newWand);
+            clearExcessSpellSlots();
         }
     }
 
@@ -243,6 +311,10 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
     }
 
     private void updateWandSpells() {
+        if (level == null || level.isClientSide()) {
+            return;
+        }
+
         ItemStack wandStack = inventory.getStackInSlot(WAND_SLOT);
         if (wandStack.isEmpty() || !(wandStack.getItem() instanceof Wand wand)) {
             return;
@@ -257,11 +329,14 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
         ListTag spellList = new ListTag();
         int maxSlots = getMaxAvailableSpells(wandStack);
 
-        for (int i = 0; i < maxSlots; i++) {
-            ItemStack spellStack = inventory.getStackInSlot(FIRST_SPELL_SLOT + i);
-            if (!spellStack.isEmpty()) {
-                CompoundTag spellTag = (CompoundTag) spellStack.save(level.registryAccess());
-                spellList.add(spellTag);
+        for (int i = 0; i < Math.min(maxSlots, MAX_SPELL_SLOTS); i++) {
+            int slotIndex = FIRST_SPELL_SLOT + i;
+            if (slotIndex < TOTAL_SLOTS) {
+                ItemStack spellStack = inventory.getStackInSlot(slotIndex);
+                if (!spellStack.isEmpty()) {
+                    CompoundTag spellTag = (CompoundTag) spellStack.save(level.registryAccess());
+                    spellList.add(spellTag);
+                }
             }
         }
 
@@ -322,13 +397,17 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
 
     public int getMaxAvailableSpells(ItemStack wandStack) {
         if (wandStack.isEmpty() || !(wandStack.getItem() instanceof Wand wand)) {
-            return 0;
+            return 1;
         }
-        return wand.getMaxSpells(wandStack); // Pass the wandStack argument
+        int wandSpells = wand.getMaxSpells(wandStack);
+        return Math.max(1, Math.min(wandSpells, MAX_SPELL_SLOTS));
     }
 
     public int getCurrentAvailableSpells() {
         ItemStack wandStack = inventory.getStackInSlot(WAND_SLOT);
+        if (wandStack.isEmpty()) {
+            return 1;
+        }
         return getMaxAvailableSpells(wandStack);
     }
 
@@ -364,27 +443,29 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
 
         WandStats baseStats = Config.getBaseWandStats();
 
-        // Use additive modifiers with weighted contributions by part type
-        // Convert multipliers to additive bonuses: 1.2 becomes +0.2, 0.8 becomes -0.2
+        float powerBonus = calculateAdditiveBonus(handleStats.power(), 0.1f) +
+                calculateAdditiveBonus(binderStats.power(), 0.6f) +
+                calculateAdditiveBonus(capStats.power(), 0.3f);
 
-        float powerBonus = calculateAdditiveBonus(handleStats.power(), 0.1f) +        // Handles: 10%
-                calculateAdditiveBonus(binderStats.power(), 0.6f) +        // Binders: 60%
-                calculateAdditiveBonus(capStats.power(), 0.3f);            // Caps: 30%
+        float stabilityBonus = calculateAdditiveBonus(handleStats.stability(), 0.4f) +
+                calculateAdditiveBonus(binderStats.stability(), 0.3f) +
+                calculateAdditiveBonus(capStats.stability(), 0.3f);
 
-        float stabilityBonus = calculateAdditiveBonus(handleStats.stability(), 0.4f) +  // Handles: 40%
-                calculateAdditiveBonus(binderStats.stability(), 0.3f) +  // Binders: 30%
-                calculateAdditiveBonus(capStats.stability(), 0.3f);      // Caps: 30%
+        float durabilityBonus = calculateAdditiveBonus(handleStats.durability(), 0.5f) +
+                calculateAdditiveBonus(binderStats.durability(), 0.2f) +
+                calculateAdditiveBonus(capStats.durability(), 0.3f);
 
-        float durabilityBonus = calculateAdditiveBonus(handleStats.durability(), 0.5f) + // Handles: 50%
-                calculateAdditiveBonus(binderStats.durability(), 0.2f) +  // Binders: 20%
-                calculateAdditiveBonus(capStats.durability(), 0.3f);      // Caps: 30%
+        float criticalBonus = calculateAdditiveBonus(handleStats.critical(), 0.2f) +
+                calculateAdditiveBonus(binderStats.critical(), 0.5f) +
+                calculateAdditiveBonus(capStats.critical(), 0.3f);
 
-        float criticalBonus = calculateAdditiveBonus(handleStats.critical(), 0.2f) +     // Handles: 20%
-                calculateAdditiveBonus(binderStats.critical(), 0.5f) +     // Binders: 50%
-                calculateAdditiveBonus(capStats.critical(), 0.3f);         // Caps: 30%
-
-        // Apply bonuses to base stats with reasonable limits
-        return new WandStats(Math.max(0.1f, baseStats.power() * (1.0f + powerBonus)), Math.max(0.1f, baseStats.stability() * (1.0f + stabilityBonus)), Math.max(0.1f, baseStats.durability() * (1.0f + durabilityBonus)), Math.max(0.0f, baseStats.critical() * (1.0f + criticalBonus)), determineAffinity(handleStats, binderStats, capStats));
+        return new WandStats(
+                Math.max(0.1f, baseStats.power() * (1.0f + powerBonus)),
+                Math.max(0.1f, baseStats.stability() * (1.0f + stabilityBonus)),
+                Math.max(0.1f, baseStats.durability() * (1.0f + durabilityBonus)),
+                Math.max(0.0f, baseStats.critical() * (1.0f + criticalBonus)),
+                determineAffinity(handleStats, binderStats, capStats)
+        );
     }
 
     private float calculateAdditiveBonus(float multiplier, float weight) {
@@ -438,6 +519,14 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
         return slot >= FIRST_SPELL_SLOT && slot < FIRST_SPELL_SLOT + MAX_SPELL_SLOTS;
     }
 
+    public boolean isSpellSlotActive(int slot) {
+        if (!isSpellSlot(slot)) {
+            return false;
+        }
+        int spellSlotIndex = slot - FIRST_SPELL_SLOT;
+        return spellSlotIndex < getCurrentAvailableSpells();
+    }
+
     public String getPartType(int slot) {
         return switch (slot) {
             case HANDLE_SLOT -> "handle";
@@ -467,36 +556,45 @@ public class SpellBinderEntity extends BlockEntity implements MenuProvider {
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         if (tag.contains("inventory")) {
+            // Force correct inventory size before loading
             inventory.deserializeNBT(registries, tag.getCompound("inventory"));
+
+            // Verify the inventory has the correct size after loading
+            if (inventory.getSlots() != TOTAL_SLOTS) {
+                // If somehow the size is still wrong, recreate the inventory
+                System.err.println("WARNING: SpellBinder inventory has wrong slot count after loading: " + inventory.getSlots() + " (expected " + TOTAL_SLOTS + ")");
+            }
         }
     }
 
     public void onWandRemoved() {
-        updateWandSpells();
-        updateWandParts();
+        if (level != null && !level.isClientSide()) {
+            updateWandSpells();
+            updateWandParts();
 
-        ItemStack wandStack = inventory.getStackInSlot(WAND_SLOT);
-        if (!wandStack.isEmpty() && level != null && !level.isClientSide()) {
-            String handleMaterial = getMaterialFromSlot(HANDLE_SLOT, "handle");
-            String binderMaterial = getMaterialFromSlot(BINDER_SLOT, "binder");
-            String capMaterial = getMaterialFromSlot(CAP_SLOT, "cap");
+            ItemStack wandStack = inventory.getStackInSlot(WAND_SLOT);
+            if (!wandStack.isEmpty()) {
+                String handleMaterial = getMaterialFromSlot(HANDLE_SLOT, "handle");
+                String binderMaterial = getMaterialFromSlot(BINDER_SLOT, "binder");
+                String capMaterial = getMaterialFromSlot(CAP_SLOT, "cap");
 
-            if (handleMaterial != null && binderMaterial != null && capMaterial != null) {
-                Wand.setWandParts(wandStack, handleMaterial, binderMaterial, capMaterial);
-                dropItemAtBlock(wandStack);
-            } else {
-                if (handleMaterial != null) {
-                    dropItemAtBlock(inventory.getStackInSlot(HANDLE_SLOT));
+                if (handleMaterial != null && binderMaterial != null && capMaterial != null) {
+                    Wand.setWandParts(wandStack, handleMaterial, binderMaterial, capMaterial);
+                    dropItemAtBlock(wandStack);
+                } else {
+                    if (handleMaterial != null) {
+                        dropItemAtBlock(inventory.getStackInSlot(HANDLE_SLOT));
+                    }
+                    if (binderMaterial != null) {
+                        dropItemAtBlock(inventory.getStackInSlot(BINDER_SLOT));
+                    }
+                    if (capMaterial != null) {
+                        dropItemAtBlock(inventory.getStackInSlot(CAP_SLOT));
+                    }
                 }
-                if (binderMaterial != null) {
-                    dropItemAtBlock(inventory.getStackInSlot(BINDER_SLOT));
-                }
-                if (capMaterial != null) {
-                    dropItemAtBlock(inventory.getStackInSlot(CAP_SLOT));
-                }
+
+                inventory.setStackInSlot(WAND_SLOT, ItemStack.EMPTY);
             }
-
-            inventory.setStackInSlot(WAND_SLOT, ItemStack.EMPTY);
         }
 
         clearAllSlots();
